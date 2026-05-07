@@ -3,7 +3,6 @@
 
 const ChurchAPI = {
 
-  // 通用直連 GAS（LKERP 格式: { action, token, data }）
   async callGAS(url, action, data = {}) {
     const res = await fetch(url, {
       method: 'POST',
@@ -14,7 +13,6 @@ const ChurchAPI = {
     return await res.json();
   },
 
-  // LKC1958 直連（格式略不同： type 在頂層）
   async callLKC1958(action, opts = {}) {
     const payload = {
       action,
@@ -31,7 +29,6 @@ const ChurchAPI = {
     return await res.json();
   },
 
-  // 解析多種 GAS 回傳格式
   _unwrap(result) {
     if (Array.isArray(result)) return result;
     if (result && result.status === 'success' && result.data !== undefined) return result.data;
@@ -41,6 +38,8 @@ const ChurchAPI = {
 
   // ==========================================
   // LKC1958 - 服事排班
+  // 從 司會班表（展名: 台語司會, 華語司會）
+  // 和 台語司琴班表（展名: 司琴） 聚合回傳
   // ==========================================
   async fetchServiceSchedule(sundayDate) {
     try {
@@ -51,14 +50,11 @@ const ChurchAPI = {
       const headers = rawData[0] || [];
       const rows = rawData.slice(1);
 
-      // 日期對應：將選取日期與每列第一欄比對，只保留數字後比較
-      // 例：選取 2026-05-10 → targetClean = "20260510"
-      // 試算表儲存格可能是 "2026/05/10"、"2026年5月10日" 等，統一去掉非數字後比對
-      // 若找不到完全吻合的日期，退而取最後一列（最新一筆）
-      const targetClean = sundayDate.replace(/-/g, '');
+      // GAS 回傳日期為 ISO 字串 (e.g. "2026-01-04T00:00:00.000Z")
+      // 第一步用 includes 比對，找不到才退而取最後一列
       let targetRow = rows.find(row => {
-        const clean = String(row[0] || '').replace(/[^\d]/g, '');
-        return clean === targetClean || String(row[0]).includes(sundayDate);
+        const d = String(row[0] || '');
+        return d.startsWith(sundayDate) || d.includes(sundayDate);
       }) || rows[rows.length - 1] || [];
 
       const r = {};
@@ -67,9 +63,12 @@ const ChurchAPI = {
       return {
         success: true, source: 'LKC1958_June_1',
         data: {
-          mc:        r['司會'] || r['司儀'] || '',
-          zhMc:      r['華語司會'] || r['國語司會'] || r['普通話司會'] || r['華語司儀'] || '',
-          pianist:   r['台語司琴班表'] || r['司琴'] || '',
+          // 司會班表欄位名稱
+          mc:        r['台語司會'] || '',
+          zhMc:      r['華語司會'] || '',
+          // 台語司琴班表欄位名稱
+          pianist:   r['司琴'] || '',
+          // 其他服事欄位
           choir:     r['詩班'] || '',
           usher:     r['招待/停車'] || r['招待'] || '',
           chairman:  r['主席'] || r['主理'] || '',
@@ -85,6 +84,7 @@ const ChurchAPI = {
 
   // ==========================================
   // LKworship - 敬拜團
+  // 服事表總表: 年度/季度/日期/主領/配唱.../Keyboard/鼓...
   // ==========================================
   async fetchWorshipSchedule(date) {
     try {
@@ -99,7 +99,7 @@ const ChurchAPI = {
       if (Array.isArray(scheduleData)) {
         row = scheduleData.find(r => {
           const rd = String(r['日期'] || r[0] || '');
-          return rd === date || rd.includes(date);
+          return rd.startsWith(date) || rd.includes(date);
         }) || scheduleData[scheduleData.length - 1] || null;
       }
 
@@ -107,8 +107,7 @@ const ChurchAPI = {
         success: true, source: 'LKworship',
         data: {
           leader:  row ? (row['主領'] || '') : '',
-          singers: row ? (row['配唱'] || '') : '',
-          pianist: row ? (row['司琴'] || '') : '',
+          singers: row ? ([row['配唱 1'], row['配唱 2'], row['配唱 3']].filter(Boolean).join('、') || '') : '',
           raw: row || {}
         }
       };
@@ -120,6 +119,8 @@ const ChurchAPI = {
 
   // ==========================================
   // LKCschedule - 行事曆
+  // 資料為關聯式: 聚會資料 + 講道資訊 由 GAS 連結回傳
+  // 講道類別: "台語/聯合" 或 "華語"
   // ==========================================
   async fetchCalendar() {
     try {
@@ -133,13 +134,14 @@ const ChurchAPI = {
         data: events.map(e => ({
           date:         e['日期']    || e.date         || '',
           name:         e['聚會名稱'] || e.name         || '',
-          category:     e['聚會類別'] || e.category     || '',
+          // 講道類別可能為 "台語/聯合" 或 "華語"，優先用講道資訊的類別欄
+          category:     e['講道類別'] || e['聚會類別'] || e.category || '',
           sermonTitle:  e['講題']    || e.sermonTitle  || '',
           speaker:      e['講員']    || e.speaker      || '',
           scripture:    e['經文']    || e.scripture    || '',
           callToWorship:e['宣召']    || e.callToWorship|| '',
           goldenVerse:  e['金句']    || e.goldenVerse  || '',
-          hymn:         e['詩歌/聖詩']|| e['詩歌'] || e['聖詩'] || e.hymn || '',
+          hymn:         e['詩歌']    || e['聖詩'] || e['詩歌/聖詩'] || e.hymn || '',
           notes:        e['備註']    || e.notes        || '',
           raw: e
         }))
@@ -155,9 +157,19 @@ const ChurchAPI = {
     if (!result.success) return result;
     const events = result.data;
 
-    const match = e => e.date === date || String(e.date).includes(date);
-    const twService = events.find(e => match(e) && (e.category === '台語' || e.name.includes('台語') || e.category === '主日'));
-    const zhService = events.find(e => match(e) && (e.category === '華語' || e.name.includes('華語')));
+    const match = e => {
+      const d = String(e.date || '');
+      return d.startsWith(date) || d.includes(date);
+    };
+
+    // 講道類別可能是 "台語/聯合"、"台語"、"主日" 等
+    const twService = events.find(e => match(e) && (
+      e.category.includes('台語') || e.name.includes('台語') || e.category === '主日'
+    ));
+    // 華語則只對應 "華語"
+    const zhService = events.find(e => match(e) && (
+      e.category === '華語' || e.name.includes('華語')
+    ));
 
     const today = new Date(date);
     const limit = new Date(today); limit.setMonth(limit.getMonth() + 3);
@@ -177,6 +189,7 @@ const ChurchAPI = {
 
   // ==========================================
   // LKGroup - 小組
+  // 小組點名紀錄欄位: 日期 / 出席人員 / 缺席人員 / 新朋友 / 實到人數
   // ==========================================
   async fetchSmallGroups(date) {
     try {
@@ -190,15 +203,16 @@ const ChurchAPI = {
           if (Array.isArray(data) && data.length > 0) {
             const recent = data[data.length - 1];
             results[groupName] = {
-              date:        recent['日期'] || '',
-              attendance:  Number(recent['出席人數']) || 0,
-              newFriends:  Number(recent['新朋友'])  || 0
+              date:       recent['日期'] || '',
+              // 出席人數欄名為 "實到人數"，不是 "出席人數"
+              attendance: Number(recent['實到人數']) || 0,
+              newFriends: recent['新朋友'] || ''
             };
           } else {
-            results[groupName] = { date: '', attendance: 0, newFriends: 0 };
+            results[groupName] = { date: '', attendance: 0, newFriends: '' };
           }
         } catch (e) {
-          results[groupName] = { date: '', attendance: 0, newFriends: 0, error: e.message };
+          results[groupName] = { date: '', attendance: 0, newFriends: '', error: e.message };
         }
       }));
       return { success: true, source: 'LKGroup', data: results };
