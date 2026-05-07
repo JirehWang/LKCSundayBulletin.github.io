@@ -11,7 +11,7 @@ const BulletinModel = {
 
       // 台語主日禮拜程序
       taiwanese: {
-        presider: '楊承恩牧師',
+        presider: '',
         mc: '',           // 司會者
         pianist: '',      // 司琴者
         callToWorship: '', // 宣召 經文
@@ -26,12 +26,12 @@ const BulletinModel = {
         goldenVerse: '',  // 金句 經文
         offeringNote: '', // 奉獻 備註
         doxologyHymn: '', // 頌榮 號碼
-        bankAccount: '玉山銀行(808) 1366-940-027887\n戶名：台灣基督長老教會樂迦拿教會'
+        bankAccount: CONFIG.BANK_ACCOUNT
       },
 
       // 華語主日禮拜程序
       mandarin: {
-        presider: '郭懷智同學',
+        presider: '',
         mc: '',           // 司會者
         scripture: '',    // 聖經 經文
         sermonTitle: '',  // 講道 題目

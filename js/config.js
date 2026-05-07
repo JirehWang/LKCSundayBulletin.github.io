@@ -15,6 +15,10 @@ const CONFIG = {
   // 固定奉獻帳戶資訊
   BANK_ACCOUNT: '教會奉獻帳戶：彰化銀行林口分行\n戶名：台灣基督長老教會林口教會\n銀行代碼：009　帳號：9689-51-29395500\n若有匯款請通知教會辦公室，謝謝！',
 
+  // LKC1958 排班系統 GAS 端點（獨立於 LKERP 路由）
+  LKC1958_GAS_URL: 'https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec',
+  LKC1958_TOKEN: 'ChurchApp-2026',
+
   // 自動儲存間隔（毫秒）
   AUTO_SAVE_INTERVAL: 60000,
 
@@ -26,34 +30,6 @@ const CONFIG = {
 
   // 版本
   VERSION: '1.0.0',
-
-  // 台語服事排班 API（LKC1958_June_1）
-  SERVICE_API: {
-    action: 'getAggregatedReport',
-    payload: { type: 'service' }
-  },
-
-  // 敬拜團 API（LKworship）
-  WORSHIP_API: {
-    scheduleAction: 'getSchedule',
-    songsAction: 'getSongs'
-  },
-
-  // 小組 API（LKGroup）
-  GROUP_API: {
-    action: 'getStats'
-  },
-
-  // 行事曆 API（LKCschedule）
-  CALENDAR_API: {
-    action: 'load',
-    payload: {}
-  },
-
-  // 點名 API（LKC_Attendance）
-  ATTENDANCE_API: {
-    mode: 'single'
-  },
 
   // 台語小組列表
   TW_GROUPS: [
@@ -70,7 +46,7 @@ const CONFIG = {
   ]
 };
 
-// 從 LKERP 載入共用設定（churchAPI 函式）
+// 從 LKERP 載入共用設定（churchAPI 函式，供 LKworship / LKGroup / LKCschedule 使用）
 (function loadExternalConfig() {
   const script = document.createElement('script');
   script.src = 'https://jirehwang.github.io/LKERP.github.io/config.js';
