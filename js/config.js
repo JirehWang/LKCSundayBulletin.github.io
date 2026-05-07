@@ -3,7 +3,7 @@
 
 const CONFIG = {
   // Google Apps Script 端點 (草稿雲端同步用)
-  GAS_SYNC_URL: 'https://script.google.com/macros/s/AKfycbyHcxZLTLQkLgTHTTMJiib5T4J-kwx2fe6U_3Q6-kCptyoFkJfAc5iDKSqenTJlDi6K/exec',  // 若需要雲端同步，請填入 GAS URL
+  GAS_SYNC_URL: 'https://script.google.com/macros/s/AKfycbyLLQZsz_XZqhWVwaT_8hcvfQc8fSWztAncEmBUk7lnzGr-TcP33uzS-weUG_cavgEn/exec',  // 若需要雲端同步，請填入 GAS URL
 
   // 教會基本資訊
   CHURCH_NAME: '台灣基督長老教會林口教會',
