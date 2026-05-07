@@ -6,8 +6,8 @@ const CONFIG = {
   GAS_SYNC_URL: '',  // 若需要雲端同步，請填入 GAS URL
 
   // 教會基本資訊
-  CHURCH_NAME: '樂迦拿基督長老教會',
-  CHURCH_NAME_EN: 'Lekana Christian Presbyterian Church',
+  CHURCH_NAME: '台灣基督長老教會林口教會',
+  CHURCH_NAME_EN: 'Linkou Presbyterian Church',
 
   // 自動儲存間隔 (毫秒)
   AUTO_SAVE_INTERVAL: 60000,
@@ -61,7 +61,10 @@ const CONFIG = {
   SUNDAY_SCHOOL_CLASSES: [
     '幼小班', '初小班', '中小班', '高小班',
     '青少年班', '成人A班', '成人B班'
-  ]
+  ],
+
+  // 教會固定奉獻帳戶資訊
+  BANK_ACCOUNT: '教會奉獻帳戶：彰化銀行林口分行\n戶名：台灣基督長老教會林口教會\n銀行代碼：009　帳號：9689-51-29395500\n若有匯款請通知教會辦公室，謝謝！'
 };
 
 // 嘗試從 LKERP 載入外部設定
