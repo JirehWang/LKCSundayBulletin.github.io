@@ -127,6 +127,7 @@ const BulletinModel = {
       }
     }
 
+
     // LKC1958: 司會者、司琴、服事人員排班
     if (service?.success) {
       const d = service.data;
@@ -146,6 +147,7 @@ const BulletinModel = {
     // LKworship: 敬拜團主領與配置
     if (worship?.success) {
       const w = worship.data;
+      // 服事人員 tab - 華語敬拜主領
       this.set('ministry.thisWeek.zh.worship', w.leader || '');
     }
 

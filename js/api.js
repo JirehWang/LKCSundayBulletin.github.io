@@ -19,13 +19,15 @@ const ChurchAPI = {
       data: opts.data || {},
       ...(opts.type !== undefined && { type: opts.type })
     };
+    const formBody = 'payload=' + encodeURIComponent(JSON.stringify(payload));
     const res = await fetch(CONFIG.LKC1958_GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload)
+      method:   'POST',
+      headers:  { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:     formBody,
+      redirect: 'follow'
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    return await res.json();  // { status:'success', data: matrix }
   },
 
   _unwrap(result) {
@@ -49,6 +51,7 @@ const ChurchAPI = {
 
   // ==========================================
   // LKC1958 - 服事排班
+  // GAS 回傳：{ status:'success', data:[[headers],[row],...] }
   // ==========================================
   async fetchServiceSchedule(sundayDate) {
     try {
@@ -63,12 +66,15 @@ const ChurchAPI = {
       console.log('[LKC1958] headers:', headers);
       console.log('[LKC1958] total rows:', rows.length, '| looking for date:', sundayDate);
 
+
       let targetRow = rows.find(row => this._dateMatch(row[0], sundayDate)) || rows[rows.length - 1] || [];
       console.log('[LKC1958] matched row[0]:', targetRow[0]);
 
       const r = {};
       headers.forEach((h, i) => { if (h) r[h] = targetRow[i] || ''; });
       console.log('[LKC1958] r keys:', Object.keys(r));
+
+      console.log('[LKC1958] 欄位對應:', Object.keys(r));
 
       return {
         success: true, source: 'LKC1958_June_1',
@@ -108,11 +114,24 @@ const ChurchAPI = {
           || scheduleData[scheduleData.length - 1] || null;
       }
 
+      console.log('[LKworship] 本週資料:', row);
+
+      // 配唱欄位可能是「配唱」或「配唱1」/「配唱2」/「配唱3」
+      let singers = '';
+      if (row) {
+        const parts = [
+          row['配唱1'] || '',
+          row['配唱2'] || '',
+          row['配唱3'] || ''
+        ].filter(Boolean);
+        singers = parts.length > 0 ? parts.join('、') : (row['配唱'] || '');
+      }
+
       return {
         success: true, source: 'LKworship',
         data: {
           leader:  row ? (row['主領'] || '') : '',
-          singers: row ? ([row['配唱 1'], row['配唱 2'], row['配唱 3']].filter(Boolean).join('、') || '') : '',
+          singers: singers,
           raw: row || {}
         }
       };
@@ -166,7 +185,6 @@ const ChurchAPI = {
     const result = await this.fetchCalendar();
     if (!result.success) return result;
     const events = result.data;
-
     const match = e => this._dateMatch(e.date, date);
 
     const twService = events.find(e => match(e) && (
