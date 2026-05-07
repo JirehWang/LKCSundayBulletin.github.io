@@ -127,7 +127,6 @@ const BulletinModel = {
       }
     }
 
-
     // LKC1958: 司會者、司琴、服事人員排班
     if (service?.success) {
       const d = service.data;
@@ -135,19 +134,22 @@ const BulletinModel = {
       this.set('taiwanese.mc',      d.mc      || '');
       this.set('taiwanese.pianist', d.pianist || '');
       this.set('mandarin.mc',       d.zhMc    || '');
-      // 服事人員 tab
-      this.set('ministry.thisWeek.tw.mc',            d.mc         || '');
-      this.set('ministry.thisWeek.tw.pianist',       d.pianist    || '');
-      this.set('ministry.thisWeek.tw.presider',      d.chairman   || '');
-      this.set('ministry.thisWeek.tw.choir',         d.choir      || '');
-      this.set('ministry.thisWeek.tw.usher',         d.usher      || '');
-      this.set('ministry.thisWeek.tw.preMeetingSong',d.songLeader || '');
+      // 服事人員 tab - 台語
+      this.set('ministry.thisWeek.tw.mc',            d.mc           || '');
+      this.set('ministry.thisWeek.tw.pianist',       d.pianist      || '');
+      this.set('ministry.thisWeek.tw.presider',      d.chairman     || '');
+      this.set('ministry.thisWeek.tw.choir',         d.choir        || '');
+      this.set('ministry.thisWeek.tw.usher',         d.usher        || '');
+      this.set('ministry.thisWeek.tw.preMeetingSong',d.songLeader   || '');
+      this.set('ministry.thisWeek.tw.soundControl',  d.soundControl || '');
+      this.set('ministry.thisWeek.tw.newcomerCare',  d.newcomerCare || '');
+      // 服事人員 tab - 華語
+      this.set('ministry.thisWeek.zh.mc',            d.zhMc         || '');
     }
 
     // LKworship: 敬拜團主領與配置
     if (worship?.success) {
       const w = worship.data;
-      // 服事人員 tab - 華語敬拜主領
       this.set('ministry.thisWeek.zh.worship', w.leader || '');
     }
 
