@@ -108,17 +108,23 @@ const BulletinModel = {
     if (calendar?.success) {
       const { taiwanese: tw, mandarin: zh, upcoming } = calendar.data;
       if (tw) {
+        // 主日程序 tab
         this.set('taiwanese.presider',     tw.speaker      || '');
         this.set('taiwanese.sermonTitle',  tw.sermonTitle  || '');
         this.set('taiwanese.scripture',    tw.scripture    || '');
         this.set('taiwanese.callToWorship',tw.callToWorship|| '');
         this.set('taiwanese.goldenVerse',  tw.goldenVerse  || '');
         if (tw.hymn) this.set('taiwanese.openingHymn', tw.hymn);
+        // 服事人員 tab - 台語主理
+        this.set('ministry.thisWeek.tw.presider', tw.speaker || '');
       }
       if (zh) {
+        // 主日程序 tab
         this.set('mandarin.presider',    zh.speaker      || '');
         this.set('mandarin.sermonTitle', zh.sermonTitle  || '');
         this.set('mandarin.scripture',   zh.scripture    || '');
+        // 服事人員 tab - 華語主理
+        this.set('ministry.thisWeek.zh.presider', zh.speaker || '');
       }
       if (upcoming) {
         this.set('events', upcoming.slice(0, 15).map(e => ({
@@ -137,7 +143,6 @@ const BulletinModel = {
       // 服事人員 tab - 台語
       this.set('ministry.thisWeek.tw.mc',            d.mc           || '');
       this.set('ministry.thisWeek.tw.pianist',       d.pianist      || '');
-      this.set('ministry.thisWeek.tw.presider',      d.chairman     || '');
       this.set('ministry.thisWeek.tw.choir',         d.choir        || '');
       this.set('ministry.thisWeek.tw.usher',         d.usher        || '');
       this.set('ministry.thisWeek.tw.preMeetingSong',d.songLeader   || '');
