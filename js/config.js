@@ -6,7 +6,7 @@ const CONFIG = {
   // 雲端草稿位置（填入後即自動啟用雲端儲存）
   // 留空字串 '' 則使用瀏覽器本地快取（localStorage）
   // ============================================================
-  GAS_SYNC_URL: '',  // ← 請填入你的 Google Apps Script Web App 網址
+  GAS_SYNC_URL: 'https://script.google.com/macros/s/AKfycbyLLQZsz_XZqhWVwaT_8hcvfQc8fSWztAncEmBUk7lnzGr-TcP33uzS-weUG_cavgEn/exec',
 
   // 教會基本資訊
   CHURCH_NAME: '台灣基督長老教會林口教會',
