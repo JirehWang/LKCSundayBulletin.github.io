@@ -38,6 +38,9 @@ const App = {
     // 更新日期顯示
     this.updateDateDisplay();
 
+    // 同步表單（包含 bankAccount 預設值）
+    this.syncFormFromModel();
+
     // 啟動自動儲存
     DraftManager.startAutoSave(() => BulletinModel.get());
 
@@ -139,11 +142,11 @@ const App = {
       if (!results.calendar?.success) errors.push('行事曆');
       if (!results.service?.success) errors.push('服事排班');
       if (!results.worship?.success) errors.push('敬拜團');
-      if (!results.attendance?.success) errors.push('點名');
+      if (!results.attendance?.success) errors.push('點名（請手動填入）');
       if (!results.smallGroups?.success) errors.push('小組');
 
       if (errors.length > 0) {
-        this.showToast(`帶入完成，但以下系統追回錯誤：${errors.join('、')}`, 'warning');
+        this.showToast(`帶入完成，以下需手動填入：${errors.join('、')}`, 'warning');
       } else {
         this.showToast('全部資料帶入完成', 'success');
       }
@@ -189,10 +192,6 @@ const App = {
           break;
         case 'attendance':
           result = await ChurchAPI.fetchAttendance(date);
-          if (result.success) {
-            BulletinModel.applyAPIData({ attendance: result });
-            this.syncFormFromModel();
-          }
           break;
         case 'smallGroups':
           result = await ChurchAPI.fetchSmallGroups(date);
@@ -218,69 +217,85 @@ const App = {
   // ==========================================
   // 草稿
   // ==========================================
-  saveDraft() {
+  async saveDraft() {
     const data = BulletinModel.get();
-    const saved = DraftManager.save(data);
-    if (saved) {
-      this.showToast('草稿已儲存', 'success');
-    } else {
-      this.showToast('儲存失敗，請確認已選擇日期', 'error');
+    try {
+      const saved = await DraftManager.save(data);
+      if (saved) {
+        this.showToast('草稿已儲存', 'success');
+      } else {
+        this.showToast('儲存失敗，請確認已選擇日期', 'error');
+      }
+    } catch (err) {
+      this.showToast('草稿儲存失敗：' + err.message, 'error');
     }
   },
 
-  showDraftModal() {
-    const drafts = DraftManager.list();
+  async showDraftModal() {
     const list = document.getElementById('draftList');
-    list.innerHTML = '';
-
-    if (drafts.length === 0) {
-      list.innerHTML = '<div class="empty-state">尚無已儲存的草稿</div>';
-    } else {
-      drafts.forEach(draft => {
-        const d = new Date(draft.updatedAt);
-        const timeStr = d.toLocaleString('zh-TW');
-        const item = document.createElement('div');
-        item.className = 'draft-item';
-        item.innerHTML = `
-          <div class="draft-info">
-            <strong>${draft.date}</strong>
-            <span class="draft-preview">${draft.preview || ''}</span>
-            <small>最後儲存：${timeStr}</small>
-          </div>
-          <div class="draft-actions">
-            <button class="btn-sm btn-primary" onclick="App.loadDraft('${draft.date}')">載入</button>
-            <button class="btn-sm btn-danger" onclick="App.deleteDraft('${draft.date}')">刪除</button>
-          </div>
-        `;
-        list.appendChild(item);
-      });
-    }
-
+    list.innerHTML = '<div class="empty-state">載入中...</div>';
     document.getElementById('modalOverlay').classList.add('show');
+
+    try {
+      const drafts = await DraftManager.list();
+      list.innerHTML = '';
+      if (!drafts || drafts.length === 0) {
+        list.innerHTML = '<div class="empty-state">尚無已儲存的草稿</div>';
+      } else {
+        drafts.forEach(draft => {
+          const d = new Date(draft.updatedAt);
+          const timeStr = d.toLocaleString('zh-TW');
+          const item = document.createElement('div');
+          item.className = 'draft-item';
+          item.innerHTML = `
+            <div class="draft-info">
+              <strong>${draft.date}</strong>
+              <span class="draft-preview">${draft.preview || ''}</span>
+              <small>最後儲存：${timeStr}</small>
+            </div>
+            <div class="draft-actions">
+              <button class="btn-sm btn-primary" onclick="App.loadDraft('${draft.date}')">載入</button>
+              <button class="btn-sm btn-danger" onclick="App.deleteDraft('${draft.date}')">刪除</button>
+            </div>
+          `;
+          list.appendChild(item);
+        });
+      }
+    } catch (err) {
+      list.innerHTML = `<div class="empty-state">載入失敗：${err.message}</div>`;
+    }
   },
 
   hideDraftModal() {
     document.getElementById('modalOverlay').classList.remove('show');
   },
 
-  loadDraft(date) {
-    const data = DraftManager.load(date);
-    if (!data) {
-      this.showToast('載入失敗', 'error');
-      return;
+  async loadDraft(date) {
+    try {
+      const data = await DraftManager.load(date);
+      if (!data) {
+        this.showToast('載入失敗', 'error');
+        return;
+      }
+      BulletinModel._current = data;
+      document.getElementById('bulletinDate').value = data.date;
+      this.syncFormFromModel();
+      this.hideDraftModal();
+      this.showToast(`草稿 ${date} 已載入`, 'success');
+    } catch (err) {
+      this.showToast('載入草稿失敗：' + err.message, 'error');
     }
-    BulletinModel._current = data;
-    document.getElementById('bulletinDate').value = data.date;
-    this.syncFormFromModel();
-    this.hideDraftModal();
-    this.showToast(`草稿 ${date} 已載入`, 'success');
   },
 
-  deleteDraft(date) {
+  async deleteDraft(date) {
     if (!confirm(`確定要刪除 ${date} 的草稿？`)) return;
-    DraftManager.delete(date);
-    this.showDraftModal(); // 重新顯示
-    this.showToast('草稿已刪除', 'success');
+    try {
+      await DraftManager.delete(date);
+      this.showDraftModal();
+      this.showToast('草稿已刪除', 'success');
+    } catch (err) {
+      this.showToast('刪除失敗：' + err.message, 'error');
+    }
   },
 
   // ==========================================
@@ -373,13 +388,13 @@ const App = {
     div.className = 'dynamic-row';
     div.dataset.idx = rowIdx;
     div.innerHTML = `
-      <input type="date" class="form-input" placeholder="日期"
+      <input type="date" class="form-input"
         value="${ev?.date || ''}"
         onchange="App._updateEvent(${rowIdx}, 'date', this.value)">
-      <input type="text" class="form-input" placeholder="活動名稱"
+      <input type="text" class="form-input"
         value="${ev?.name || ''}"
         oninput="App._updateEvent(${rowIdx}, 'name', this.value)">
-      <input type="text" class="form-input flex-2" placeholder="活動說明"
+      <input type="text" class="form-input flex-2"
         value="${ev?.description || ''}"
         oninput="App._updateEvent(${rowIdx}, 'description', this.value)">
       <button class="btn-icon btn-danger" onclick="App._removeEvent(${rowIdx})" title="刪除">✕</button>
@@ -408,13 +423,13 @@ const App = {
     div.className = 'dynamic-row';
     div.dataset.idx = rowIdx;
     div.innerHTML = `
-      <input type="text" class="form-input" placeholder="姓名"
+      <input type="text" class="form-input"
         value="${item?.name || ''}"
         oninput="App._updateOffering(${rowIdx}, 'name', this.value)">
-      <input type="text" class="form-input" placeholder="金額"
+      <input type="text" class="form-input"
         value="${item?.amount || ''}"
         oninput="App._updateOffering(${rowIdx}, 'amount', this.value)">
-      <input type="text" class="form-input" placeholder="備註"
+      <input type="text" class="form-input"
         value="${item?.note || ''}"
         oninput="App._updateOffering(${rowIdx}, 'note', this.value)">
       <button class="btn-icon btn-danger" onclick="App._removeOffering(${rowIdx})" title="刪除">✕</button>

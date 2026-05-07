@@ -1,87 +1,193 @@
 // 草稿管理 - 教會週報管理系統
-// 使用 localStorage 主要儲存，可選擇 GAS 雲端同步
+// 雲端（GAS）為主要儲存，localStorage 為本地備援快取
+// 設定雲端位置：在 js/config.js 的 GAS_SYNC_URL 填入網址即可
 
 const DraftManager = {
 
-  // 儲存草稿
-  save(data) {
+  // ============================================================
+  // 公開 API
+  // ============================================================
+
+  // 儲存草稿（雲端優先，失敗則僅存本地）
+  async save(data) {
     if (!data.date) {
-      console.warn('[Draft] 無日期，無法儲存草稿');
-      return false;
+      console.warn('[Draft] 無日期，無法儲存');
+      return { success: false, error: '請先選擇週報日期' };
     }
 
-    try {
-      const key = CONFIG.DRAFT_KEY_PREFIX + data.date;
-      const toSave = {
-        ...data,
-        updatedAt: new Date().toISOString()
-      };
+    const key = CONFIG.DRAFT_KEY_PREFIX + data.date;
+    const payload = { ...data, updatedAt: new Date().toISOString() };
 
-      localStorage.setItem(key, JSON.stringify(toSave));
+    // 先存本地快取（確保離線也有備份）
+    this._saveLocal(key, payload);
 
-      // 更新草稿索引
-      this._updateIndex(data.date);
-
-      // 嘗試雲端同步
-      if (CONFIG.GAS_SYNC_URL) {
-        this._syncToCloud(toSave).catch(err =>
-          console.warn('[Draft] 雲端同步失敗:', err)
-        );
+    // 若有雲端 URL，以雲端為主
+    if (CONFIG.GAS_SYNC_URL) {
+      try {
+        const result = await this._saveCloud(key, payload);
+        console.log('[Draft] 雲端儲存成功:', key);
+        return { success: true, location: 'cloud', key, updatedAt: result.updatedAt };
+      } catch (err) {
+        console.warn('[Draft] 雲端儲存失敗，已存入本地快取:', err.message);
+        return { success: true, location: 'local-only', key, warning: '雲端暫時無法連線，草稿已存入本地快取' };
       }
+    }
 
-      return true;
+    return { success: true, location: 'local', key };
+  },
+
+  // 載入草稿（雲端優先，失敗則從本地快取取）
+  async load(date) {
+    const key = CONFIG.DRAFT_KEY_PREFIX + date;
+
+    if (CONFIG.GAS_SYNC_URL) {
+      try {
+        const cloudData = await this._loadCloud(key);
+        if (cloudData) {
+          // 同步回本地快取
+          this._saveLocal(key, cloudData);
+          console.log('[Draft] 從雲端載入:', key);
+          return { success: true, location: 'cloud', data: cloudData };
+        }
+      } catch (err) {
+        console.warn('[Draft] 雲端載入失敗，嘗試本地快取:', err.message);
+      }
+    }
+
+    // 從本地快取取
+    const localData = this._loadLocal(key);
+    if (localData) {
+      console.log('[Draft] 從本地快取載入:', key);
+      return { success: true, location: 'local', data: localData };
+    }
+
+    return { success: false, error: '找不到此日期的草稿' };
+  },
+
+  // 列出草稿（雲端優先）
+  async list() {
+    if (CONFIG.GAS_SYNC_URL) {
+      try {
+        const cloudList = await this._listCloud();
+        console.log('[Draft] 從雲端取得草稿列表');
+        return { success: true, location: 'cloud', drafts: cloudList };
+      } catch (err) {
+        console.warn('[Draft] 雲端列表失敗，改用本地快取:', err.message);
+      }
+    }
+
+    const localList = this._listLocal();
+    return { success: true, location: 'local', drafts: localList };
+  },
+
+  // 刪除草稿（同時刪除雲端與本地）
+  async delete(date) {
+    const key = CONFIG.DRAFT_KEY_PREFIX + date;
+    this._deleteLocal(key);
+
+    if (CONFIG.GAS_SYNC_URL) {
+      try {
+        await this._deleteCloud(key);
+        console.log('[Draft] 雲端刪除成功:', key);
+      } catch (err) {
+        console.warn('[Draft] 雲端刪除失敗:', err.message);
+      }
+    }
+
+    return { success: true };
+  },
+
+  // ============================================================
+  // 雲端操作（GAS Web App）
+  // ============================================================
+
+  async _saveCloud(key, data) {
+    const res = await fetch(CONFIG.GAS_SYNC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // GAS 需用 text/plain 避免 CORS preflight
+      body: JSON.stringify({ key, data })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || '雲端回傳失敗');
+    return json;
+  },
+
+  async _loadCloud(key) {
+    const url = `${CONFIG.GAS_SYNC_URL}?action=load&key=${encodeURIComponent(key)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json.success) return null;
+    return json.data;
+  },
+
+  async _listCloud() {
+    const url = `${CONFIG.GAS_SYNC_URL}?action=list`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    return json.drafts || [];
+  },
+
+  async _deleteCloud(key) {
+    const res = await fetch(CONFIG.GAS_SYNC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'delete', key })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || '刪除失敗');
+    return json;
+  },
+
+  // ============================================================
+  // 本地快取操作（localStorage）
+  // ============================================================
+
+  _saveLocal(key, data) {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+      this._updateLocalIndex(data.date);
     } catch (err) {
-      console.error('[Draft] 儲存失敗:', err);
-      return false;
+      console.warn('[Draft] localStorage 寫入失敗:', err.message);
     }
   },
 
-  // 載入草稿
-  load(date) {
+  _loadLocal(key) {
     try {
-      const key = CONFIG.DRAFT_KEY_PREFIX + date;
       const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      return JSON.parse(raw);
-    } catch (err) {
-      console.error('[Draft] 載入失敗:', err);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
       return null;
     }
   },
 
-  // 刪除草稿
-  delete(date) {
+  _deleteLocal(key) {
     try {
-      const key = CONFIG.DRAFT_KEY_PREFIX + date;
+      const date = key.replace(CONFIG.DRAFT_KEY_PREFIX, '');
       localStorage.removeItem(key);
-      this._removeFromIndex(date);
-      return true;
+      this._removeFromLocalIndex(date);
     } catch (err) {
-      console.error('[Draft] 刪除失敗:', err);
-      return false;
+      console.warn('[Draft] localStorage 刪除失敗:', err.message);
     }
   },
 
-  // 取得草稿列表 (最近 10 筆)
-  list() {
-    try {
-      const index = this._getIndex();
-      return index.map(date => {
-        const draft = this.load(date);
-        return {
-          date,
-          updatedAt: draft?.updatedAt || '',
-          preview: draft?.taiwanese?.sermonTitle || draft?.mandarin?.sermonTitle || ''
-        };
-      }).filter(d => d !== null);
-    } catch (err) {
-      console.error('[Draft] 列表失敗:', err);
-      return [];
-    }
+  _listLocal() {
+    const index = this._getLocalIndex();
+    return index.map(date => {
+      const draft = this._loadLocal(CONFIG.DRAFT_KEY_PREFIX + date);
+      return {
+        key: CONFIG.DRAFT_KEY_PREFIX + date,
+        updatedAt: draft?.updatedAt || '',
+        preview: draft?.taiwanese?.sermonTitle || draft?.mandarin?.sermonTitle || ''
+      };
+    }).filter(Boolean);
   },
 
-  // 取得索引
-  _getIndex() {
+  _getLocalIndex() {
     try {
       const raw = localStorage.getItem('bulletin_draft_index');
       return raw ? JSON.parse(raw) : [];
@@ -90,10 +196,8 @@ const DraftManager = {
     }
   },
 
-  // 更新索引
-  _updateIndex(date) {
-    let index = this._getIndex();
-    index = index.filter(d => d !== date);
+  _updateLocalIndex(date) {
+    let index = this._getLocalIndex().filter(d => d !== date);
     index.unshift(date);
     if (index.length > CONFIG.MAX_DRAFTS) {
       const removed = index.splice(CONFIG.MAX_DRAFTS);
@@ -102,50 +206,26 @@ const DraftManager = {
     localStorage.setItem('bulletin_draft_index', JSON.stringify(index));
   },
 
-  // 從索引移除
-  _removeFromIndex(date) {
-    let index = this._getIndex();
-    index = index.filter(d => d !== date);
+  _removeFromLocalIndex(date) {
+    const index = this._getLocalIndex().filter(d => d !== date);
     localStorage.setItem('bulletin_draft_index', JSON.stringify(index));
   },
 
-  // 雲端同步
-  async _syncToCloud(data) {
-    if (!CONFIG.GAS_SYNC_URL) return;
-    const response = await fetch(CONFIG.GAS_SYNC_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'saveDraft', data })
-    });
-    return response;
-  },
+  // ============================================================
+  // 自動儲存
+  // ============================================================
 
-  // 從雲端載入
-  async loadFromCloud(date) {
-    if (!CONFIG.GAS_SYNC_URL) return null;
-    try {
-      const url = `${CONFIG.GAS_SYNC_URL}?action=loadDraft&date=${date}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      return data;
-    } catch (err) {
-      console.error('[Draft] 雲端載入失敗:', err);
-      return null;
-    }
-  },
-
-  // 自動儲存計時器
   _autoSaveTimer: null,
 
   startAutoSave(getDataFn) {
     this.stopAutoSave();
-    this._autoSaveTimer = setInterval(() => {
+    this._autoSaveTimer = setInterval(async () => {
       const data = getDataFn();
-      if (data && data.date) {
-        const saved = this.save(data);
-        if (saved) {
-          console.log('[Draft] 自動儲存完成:', data.date);
+      if (data?.date) {
+        const result = await this.save(data);
+        if (result.success) {
+          const loc = result.location === 'cloud' ? '☁️ 雲端' : '💾 本地';
+          console.log(`[Draft] 自動儲存完成 (${loc}):`, data.date);
         }
       }
     }, CONFIG.AUTO_SAVE_INTERVAL);
