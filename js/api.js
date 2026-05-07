@@ -46,10 +46,9 @@ const ChurchAPI = {
   // ==========================================
   // LKC1958 - 服事排班
   //
-  // getAggregatedReport('others') 回傳合併表，欄位順序：
-  //   ['分頁名稱','模板類型','日期','聚會名稱','聚會類別',
-  //    '台語司會','華語司會',...,'司琴','音控同工','投影同工']
-  //   第一欄是分頁名稱（不是日期！），日期在 '日期' 欄位
+  // getAggregatedReport('others') 回傳合併表，同一日期可能有多列
+  // （每列來自不同工作表：司會班表、司琴班表、音控班表…）
+  // 解法：合併所有符合日期的列，每欄取第一個非空值
   // ==========================================
   async fetchServiceSchedule(sundayDate) {
     try {
@@ -70,33 +69,41 @@ const ChurchAPI = {
         : rows.filter(row => this._dateMatch(row[0], sundayDate));
 
       console.log('[LKC1958] matchingRows:', matchingRows.length);
+      matchingRows.forEach((row, i) =>
+        console.log(`[LKC1958] row[${i}] 分頁:`, row[0],
+          '| 台語司會:', row[headers.indexOf('台語司會')],
+          '| 司琴:', row[headers.indexOf('司琴')],
+          '| 音控:', row[headers.indexOf('音控同工')])
+      );
 
-      // 優先選有填台語司會的那列
-      const twMcIdx = headers.indexOf('台語司會');
-      let targetRow = matchingRows.find(row => twMcIdx !== -1 && String(row[twMcIdx] || '').trim() !== '');
-      if (!targetRow) targetRow = matchingRows[0];
-      if (!targetRow) targetRow = rows[rows.length - 1] || [];
-
-      console.log('[LKC1958] targetRow[分頁]:', targetRow[0], '| [日期]:', dateIdx !== -1 ? targetRow[dateIdx] : 'N/A');
-
+      // 合併所有符合日期的列：每個欄位取第一個非空值
       const r = {};
-      headers.forEach((h, i) => { if (h) r[h] = targetRow[i] || ''; });
-      console.log('[LKC1958] r[台語司會]:', r['台語司會'], '| r[司琴]:', r['司琴'], '| r[音控同工]:', r['音控同工']);
+      const sourceRows = matchingRows.length > 0 ? matchingRows : [rows[rows.length - 1] || []];
+      headers.forEach((h, i) => {
+        if (!h) return;
+        for (const row of sourceRows) {
+          const v = String(row[i] || '').trim();
+          if (v !== '') { r[h] = v; break; }
+        }
+        if (r[h] === undefined) r[h] = '';
+      });
 
-      // 新家人同工可能分成兩欄，候帶入到同一欄位
+      console.log('[LKC1958] merged r[台語司會]:', r['台語司會'],
+                  '| r[司琴]:', r['司琴'], '| r[音控同工]:', r['音控同工']);
+
       const newcomer = [r['新家人同工1'] || '', r['新家人同工2'] || ''].filter(Boolean).join('、');
 
       return {
         success: true, source: 'LKC1958_June_1',
         data: {
-          mc:          r['台語司會'] || r['司會'] || r['司儀'] || '',
-          zhMc:        r['華語司會'] || '',
-          pianist:     r['司琴'] || '',
-          choir:       r['詩班'] || '',
-          usher:       r['招待/停車'] || r['招待'] || '',
-          chairman:    r['主席'] || r['主理'] || '',
-          songLeader:  r['領詩'] || '',
-          soundControl:r['音控同工'] || r['音控'] || '',
+          mc:           r['台語司會'] || r['司會'] || r['司儀'] || '',
+          zhMc:         r['華語司會'] || '',
+          pianist:      r['司琴'] || '',
+          choir:        r['詩班'] || '',
+          usher:        r['招待/停車'] || r['招待'] || '',
+          chairman:     r['主席'] || r['主理'] || '',
+          songLeader:   r['領詩'] || '',
+          soundControl: r['音控同工'] || r['音控'] || '',
           newcomerCare: newcomer,
           raw: r
         }
