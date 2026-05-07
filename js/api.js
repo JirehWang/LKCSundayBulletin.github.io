@@ -59,12 +59,13 @@ const ChurchAPI = {
       const headers = rawData[0] || [];
       const rows = rawData.slice(1);
 
+      // 支援多種日期格式：YYYY-MM-DD、YYYY/M/D、YYYYMMDD 等
       let targetRow = null;
       const targetClean = sundayDate.replace(/-/g, '');
       for (const row of rows) {
         const rowDate = String(row[0] || '');
         const rowClean = rowDate.replace(/[^\d]/g, '');
-        if (rowClean === targetClean || rowDate.includes(sundayDate)) {
+        if (rowClean === targetClean || rowDate.includes(sundayDate) || rowDate.startsWith(sundayDate)) {
           targetRow = row;
           break;
         }
@@ -74,17 +75,20 @@ const ChurchAPI = {
       const r = {};
       headers.forEach((h, i) => { r[h] = targetRow[i] || ''; });
 
+      console.log('[LKC1958] 欄位對應:', r);
+
       return {
         success: true,
         source: 'LKC1958_June_1',
         data: {
-          mc: r['司會'] || r['司儀'] || r['領會'] || '',
-          choir: r['詩班'] || '',
-          usher: r['招待/停車'] || r['招待'] || '',
-          loveAgape: r['愛宴同工'] || '',
-          chairman: r['主席'] || r['主理'] || '',
-          worship: r['領會'] || '',
-          communion: r['聖餐'] || '',
+          mc:         r['台語司會'] || r['司會'] || r['司儀'] || r['領會'] || '',
+          pianist:    r['司琴'] || '',
+          choir:      r['詩班'] || '',
+          usher:      r['招待/停車'] || r['招待'] || '',
+          loveAgape:  r['愛宴同工'] || '',
+          chairman:   r['主席'] || r['主理'] || '',
+          worship:    r['領會'] || '',
+          communion:  r['聖餐'] || '',
           songLeader: r['領詩'] || '',
           raw: r
         }
@@ -111,7 +115,9 @@ const ChurchAPI = {
       if (Array.isArray(scheduleData)) {
         for (const row of scheduleData) {
           const rowDate = String(row['日期'] || row[0] || '');
-          if (rowDate === date || rowDate.includes(date)) {
+          const rowClean = rowDate.replace(/[^\d]/g, '');
+          const targetClean = date.replace(/-/g, '');
+          if (rowClean === targetClean || rowDate.includes(date) || rowDate.startsWith(date)) {
             thisWeekData = row;
             break;
           }
@@ -121,13 +127,26 @@ const ChurchAPI = {
         }
       }
 
+      console.log('[LKworship] 本週資料:', thisWeekData);
+
+      // 配唱欄位可能是「配唱」或「配唱1」/「配唱2」/「配唱3」
+      let singers = '';
+      if (thisWeekData) {
+        const parts = [
+          thisWeekData['配唱1'] || '',
+          thisWeekData['配唱2'] || '',
+          thisWeekData['配唱3'] || ''
+        ].filter(Boolean);
+        singers = parts.length > 0 ? parts.join('、') : (thisWeekData['配唱'] || '');
+      }
+
       return {
         success: true,
         source: 'LKworship',
         data: {
-          leader: thisWeekData ? (thisWeekData['主領'] || '') : '',
-          singers: thisWeekData ? (thisWeekData['配唱'] || '') : '',
-          pianist: thisWeekData ? (thisWeekData['司琴'] || '') : '',
+          leader:  thisWeekData ? (thisWeekData['主領'] || '') : '',
+          singers,
+          pianist: thisWeekData ? (thisWeekData['Keyboard'] || thisWeekData['司琴'] || '') : '',
           raw: thisWeekData || {}
         }
       };
@@ -158,6 +177,8 @@ const ChurchAPI = {
       const events = Array.isArray(rawData) ? rawData :
                      (result && Array.isArray(result.events) ? result.events : []);
 
+      console.log('[LKCschedule] 事件數量:', events.length);
+
       return {
         success: true,
         source: 'LKCschedule',
@@ -186,23 +207,33 @@ const ChurchAPI = {
     if (!result.success) return result;
 
     const events = result.data;
+    const targetClean = date.replace(/-/g, '');
+
+    const matchDate = e => {
+      const d = String(e.date || '');
+      return d === date || d.replace(/[^\d]/g, '') === targetClean || d.includes(date);
+    };
+
+    // 台語：聚會類別包含「台語」（實際值如「台語/聯合」）
     const twService = events.find(e =>
-      (e.date === date || String(e.date).includes(date)) &&
-      (e.category === '台語' || e.name.includes('台語') || e.category === '主日')
-    );
+      matchDate(e) && (e.category.includes('台語') || e.name.includes('台語'))
+    ) || events.find(e => matchDate(e)); // fallback 取第一筆
+
+    // 華語：聚會類別包含「華語」
     const zhService = events.find(e =>
-      (e.date === date || String(e.date).includes(date)) &&
-      (e.category === '華語' || e.name.includes('華語'))
+      matchDate(e) && (e.category.includes('華語') || e.name.includes('華語'))
     );
+
+    console.log('[LKCschedule] 台語:', twService, '華語:', zhService);
 
     const today = new Date(date);
     const threeMonthsLater = new Date(today);
     threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
 
     const upcomingEvents = events.filter(e => {
-      const evDate = new Date(e.date);
+      const evDate = new Date(String(e.date).replace(/\//g, '-'));
       return evDate >= today && evDate <= threeMonthsLater;
-    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+    }).sort((a, b) => new Date(String(a.date).replace(/\//g, '-')) - new Date(String(b.date).replace(/\//g, '-')));
 
     return {
       success: true,
@@ -247,8 +278,8 @@ const ChurchAPI = {
           if (Array.isArray(data) && data.length > 0) {
             const recent = data[data.length - 1];
             results[groupName] = {
-              date: recent['日期'] || '',
-              attendance: Number(recent['出席人數']) || 0,
+              date:       recent['日期'] || '',
+              attendance: Number(recent['實到人數']) || Number(recent['出席人數']) || 0,
               newFriends: Number(recent['新朋友']) || 0
             };
           } else {

@@ -229,19 +229,25 @@ const BulletinModel = {
       }
     }
 
-    // 服事排班資料
+    // 服事排班資料（LKC1958）
     if (service?.success) {
       const d = service.data;
+      // 主日程序 tab - 台語司會 / 司琴
+      this.set('taiwanese.mc', d.mc || '');
+      this.set('taiwanese.pianist', d.pianist || '');
+      // 服事人員 tab
       this.set('ministry.thisWeek.tw.mc', d.mc || '');
+      this.set('ministry.thisWeek.tw.pianist', d.pianist || '');
       this.set('ministry.thisWeek.tw.presider', d.chairman || '');
       this.set('ministry.thisWeek.tw.choir', d.choir || '');
       this.set('ministry.thisWeek.tw.usher', d.usher || '');
       this.set('ministry.thisWeek.tw.preMeetingSong', d.songLeader || '');
     }
 
-    // 敬拜團資料
+    // 敬拜團資料（LKworship）
     if (worship?.success) {
       const w = worship.data;
+      // 服事人員 tab - 華語敬拜主領
       this.set('ministry.thisWeek.zh.worship', w.leader || '');
       this.set('mandarin.mc', w.leader || '');
     }

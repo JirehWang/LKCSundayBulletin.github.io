@@ -26,25 +26,12 @@ const App = {
       this.updateDateDisplay();
     });
 
-    // 設定標籤頁
     this.initTabs();
-
-    // 設定表單字段
     this.initFormFields();
-
-    // 設定按鈕
     this.initButtons();
-
-    // 更新日期顯示
     this.updateDateDisplay();
-
-    // 同步表單（包含 bankAccount 預設值）
     this.syncFormFromModel();
-
-    // 啟動自動儲存
     DraftManager.startAutoSave(() => BulletinModel.get());
-
-    // 提示已就緒
     this.showToast('系統已就緒，歡迎使用教會週報管理系統', 'success');
   },
 
@@ -52,8 +39,8 @@ const App = {
     const date = document.getElementById('bulletinDate').value;
     if (date) {
       const d = new Date(date + 'T00:00:00');
-      const formatted = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
-      document.getElementById('dateDisplay').textContent = formatted;
+      document.getElementById('dateDisplay').textContent =
+        `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
     }
   },
 
@@ -79,7 +66,6 @@ const App = {
   // 表單字段同步
   // ==========================================
   initFormFields() {
-    // 監聽所有表單輸入
     document.addEventListener('input', (e) => {
       const field = e.target.dataset.field;
       if (!field) return;
@@ -97,23 +83,12 @@ const App = {
   // 按鈕
   // ==========================================
   initButtons() {
-    // 全部帶入
     document.getElementById('btnFetchAll')?.addEventListener('click', () => this.fetchAll());
-
-    // 儲存草稿
     document.getElementById('btnSaveDraft')?.addEventListener('click', () => this.saveDraft());
-
-    // 載入草稿
     document.getElementById('btnLoadDraft')?.addEventListener('click', () => this.showDraftModal());
-
-    // 匯出 Word
     document.getElementById('btnExportWord')?.addEventListener('click', () => this.exportWord());
-
-    // 新增小組常動事件報告資料列
     document.getElementById('btnAddOffering')?.addEventListener('click', () => this.addOfferingRow());
     document.getElementById('btnAddEvent')?.addEventListener('click', () => this.addEventRow());
-
-    // 模態視窗關閉
     document.getElementById('modalClose')?.addEventListener('click', () => this.hideDraftModal());
     document.getElementById('modalOverlay')?.addEventListener('click', (e) => {
       if (e.target === e.currentTarget) this.hideDraftModal();
@@ -152,6 +127,49 @@ const App = {
       }
     } catch (err) {
       console.error('[App] 帶入失敗:', err);
+      this.showToast('帶入失敗：' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  // 主日程序 tab 專用帶入：calendar + service + worship 三個來源一起抓
+  async fetchServiceAndCalendar() {
+    const date = document.getElementById('bulletinDate').value;
+    if (!date) {
+      this.showToast('請先選擇日期', 'error');
+      return;
+    }
+
+    this.showLoading(true);
+    this.showToast('正在帶入主日程序資料...', 'info');
+
+    try {
+      const [calSettled, svcSettled, worSettled] = await Promise.allSettled([
+        ChurchAPI.fetchCalendarForDate(date),
+        ChurchAPI.fetchServiceSchedule(date),
+        ChurchAPI.fetchWorshipSchedule(date)
+      ]);
+
+      const calResult = calSettled.status === 'fulfilled' ? calSettled.value : { success: false, error: calSettled.reason?.message };
+      const svcResult = svcSettled.status === 'fulfilled' ? svcSettled.value : { success: false, error: svcSettled.reason?.message };
+      const worResult = worSettled.status === 'fulfilled' ? worSettled.value : { success: false, error: worSettled.reason?.message };
+
+      BulletinModel.applyAPIData({ calendar: calResult, service: svcResult, worship: worResult });
+      this.syncFormFromModel();
+
+      const failed = [
+        !calResult.success && `行事曆（${calResult.error || ''}）`,
+        !svcResult.success && `服事排班（${svcResult.error || ''}）`,
+        !worResult.success && `敬拜團（${worResult.error || ''}）`
+      ].filter(Boolean);
+
+      this.showToast(
+        failed.length ? `帶入完成，請手動確認：${failed.join('、')}` : '主日程序資料帶入完成',
+        failed.length ? 'warning' : 'success'
+      );
+    } catch (err) {
+      console.error('[App] fetchServiceAndCalendar 失敗:', err);
       this.showToast('帶入失敗：' + err.message, 'error');
     } finally {
       this.showLoading(false);
@@ -328,7 +346,6 @@ const App = {
   syncFormFromModel() {
     const data = BulletinModel.get();
 
-    // 同步所有帶 data-field 屬性的輸入元素
     document.querySelectorAll('[data-field]').forEach(el => {
       const path = el.dataset.field;
       const value = this._getNestedValue(data, path);
@@ -337,13 +354,8 @@ const App = {
       }
     });
 
-    // 同步小組出席
     this.syncSmallGroupsUI(data.attendance?.smallGroups || {});
-
-    // 同步活動預告
     this.syncEventsUI(data.events || []);
-
-    // 同步奉獻報告
     this.syncOfferingUI(data.offeringReport?.monthlyItems || []);
   },
 
