@@ -45,11 +45,11 @@ const ChurchAPI = {
 
   // ==========================================
   // LKC1958 - 服事排班
+  // 服事總表 type = 'others'（參考 LKC1958 index.html 的 showAggregatedReport 呼叫方式）
   // ==========================================
   async fetchServiceSchedule(sundayDate) {
     try {
-      // data: { type: 'service' }  <-- 正確格式，type 在 data 裡
-      const result = await this.callLKC1958('getAggregatedReport', { type: 'service' });
+      const result = await this.callLKC1958('getAggregatedReport', { type: 'others' });
       console.log('[LKC1958] raw response:', JSON.stringify(result).substring(0, 500));
 
       const rawData = this._unwrap(result);
