@@ -50,6 +50,11 @@ const ChurchAPI = {
 
       const headers = rawData[0] || [];
       const rows = rawData.slice(1);
+
+      // 日期對應：將選取日期與每列第一欄比對，只保留數字後比較
+      // 例：選取 2026-05-10 → targetClean = "20260510"
+      // 試算表儲存格可能是 "2026/05/10"、"2026年5月10日" 等，統一去掉非數字後比對
+      // 若找不到完全吻合的日期，退而取最後一列（最新一筆）
       const targetClean = sundayDate.replace(/-/g, '');
       let targetRow = rows.find(row => {
         const clean = String(row[0] || '').replace(/[^\d]/g, '');
@@ -64,7 +69,7 @@ const ChurchAPI = {
         data: {
           mc:        r['司會'] || r['司儀'] || '',
           zhMc:      r['華語司會'] || r['國語司會'] || r['普通話司會'] || r['華語司儀'] || '',
-          pianist:   r['司琴'] || '',
+          pianist:   r['台語司琴班表'] || r['司琴'] || '',
           choir:     r['詩班'] || '',
           usher:     r['招待/停車'] || r['招待'] || '',
           chairman:  r['主席'] || r['主理'] || '',
