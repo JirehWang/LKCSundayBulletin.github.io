@@ -45,7 +45,11 @@ const ChurchAPI = {
 
   // ==========================================
   // LKC1958 - 服事排班
-  // 服事總表 type = 'others'（參考 LKC1958 index.html 的 showAggregatedReport 呼叫方式）
+  //
+  // getAggregatedReport('others') 回傳合併表，欄位順序：
+  //   ['分頁名稱','模板類型','日期','聚會名稱','聚會類別',
+  //    '台語司會','華語司會',...,'司琴',...]
+  //   第一欄是分頁名稱（不是日期！），日期在 '日期' 欄位
   // ==========================================
   async fetchServiceSchedule(sundayDate) {
     try {
@@ -55,17 +59,35 @@ const ChurchAPI = {
       const rawData = this._unwrap(result);
       if (!Array.isArray(rawData) || rawData.length === 0) throw new Error('資料格式不符');
 
-      const headers = rawData[0] || [];
-      const rows    = rawData.slice(1);
+      const headers  = rawData[0] || [];
+      const rows     = rawData.slice(1);
+      const dateIdx  = headers.indexOf('日期');  // 日期欄位 index（不一定是 0）
       console.log('[LKC1958] headers:', headers);
-      console.log('[LKC1958] total rows:', rows.length, '| looking for date:', sundayDate);
+      console.log('[LKC1958] dateIdx:', dateIdx, '| total rows:', rows.length, '| looking for:', sundayDate);
 
-      let targetRow = rows.find(row => this._dateMatch(row[0], sundayDate)) || rows[rows.length - 1] || [];
-      console.log('[LKC1958] matched row[0]:', targetRow[0]);
+      // 先比對日期
+      const matchingRows = dateIdx !== -1
+        ? rows.filter(row => this._dateMatch(row[dateIdx], sundayDate))
+        : rows.filter(row => this._dateMatch(row[0], sundayDate));
+
+      console.log('[LKC1958] matchingRows:', matchingRows.length);
+
+      // 在日期符合的列中，優先選有填台語司會的那列
+      let targetRow = matchingRows.find(row => {
+        const twMcIdx = headers.indexOf('台語司會');
+        return twMcIdx !== -1 && String(row[twMcIdx] || '').trim() !== '';
+      });
+
+      // fallback: 任何日期符合的列
+      if (!targetRow) targetRow = matchingRows[0];
+      // 最後 fallback: 最後一列
+      if (!targetRow) targetRow = rows[rows.length - 1] || [];
+
+      console.log('[LKC1958] targetRow[分頁名稱]:', targetRow[0], '| [日期]:', dateIdx !== -1 ? targetRow[dateIdx] : 'N/A');
 
       const r = {};
       headers.forEach((h, i) => { if (h) r[h] = targetRow[i] || ''; });
-      console.log('[LKC1958] r keys:', Object.keys(r));
+      console.log('[LKC1958] r[台語司會]:', r['台語司會'], '| r[司琴]:', r['司琴']);
 
       return {
         success: true, source: 'LKC1958_June_1',
@@ -145,7 +167,6 @@ const ChurchAPI = {
       const result = await this.callGAS(CONFIG.LKCSCHEDULE_GAS_URL, 'load', {});
       console.log('[LKCschedule] raw (first 800):', JSON.stringify(result).substring(0, 800));
 
-      // 支援 { success:true, events:[...] } 或 _unwrap 的 result.data 格式
       let events = [];
       if (result && result.success && Array.isArray(result.events)) {
         events = result.events;
@@ -160,7 +181,6 @@ const ChurchAPI = {
       return {
         success: true, source: 'LKCschedule',
         data: events.map(e => {
-          // 從 nested sermons 陣列提取台語/聯合 和 華語 講道
           const sermons = e.sermons || [];
           const twS = sermons.find(s => s.type === '台語/聯合') || null;
           const zhS = sermons.find(s => s.type === '華語') || null;
@@ -169,7 +189,6 @@ const ChurchAPI = {
             date:         e['日期']     || e.date         || '',
             name:         e['聚會名稱'] || e.name         || '',
             category:     e['講道類別'] || e['聚會類別'] || e.category || '',
-            // 台語/聯合 講道（優先從 nested sermons 取）
             sermonTitle:  twS?.title          || e['講題']  || e.sermonTitle  || '',
             speaker:      twS?.speaker        || e['講員']  || e.speaker      || '',
             scripture:    twS?.scripture      || e['經文']  || e.scripture    || '',
@@ -177,11 +196,9 @@ const ChurchAPI = {
             goldenVerse:  twS?.goldenVerse    || e['金句']  || e.goldenVerse  || '',
             hymn:         twS?.hymns          || e['詩歌']  || e['聖詩'] || e.hymn || '',
             notes:        e['備註']           || e.notes        || '',
-            // 華語講道
             zhSermonTitle: zhS?.title     || '',
             zhSpeaker:     zhS?.speaker   || '',
             zhScripture:   zhS?.scripture || '',
-            // 用 boolean 旗標方便後面比對（不再依賴 category 字串）
             hasTwSermon: !!twS,
             hasZhSermon: !!zhS,
             raw: e
@@ -203,16 +220,12 @@ const ChurchAPI = {
     const dayEvents = events.filter(match);
     console.log('[LKCschedule] date:', date, '| dayEvents:', dayEvents.length);
 
-    // 優先用 hasTwSermon 旗標；fallback 到 category/name 字串比對
     const twEvent = dayEvents.find(e => e.hasTwSermon)
       || dayEvents.find(e => e.category.includes('台語') || e.name.includes('台語') || e.category === '主日');
     const zhEvent = dayEvents.find(e => e.hasZhSermon)
       || dayEvents.find(e => e.category.includes('華語') || e.name.includes('華語'));
 
-    // 台語 service 直接用已對應的 sermonTitle/speaker 等
     const twService = twEvent || null;
-
-    // 華語 service 使用 zh* 欄位覆蓋（因為 twEvent 與 zhEvent 可能是同一個事件）
     const zhService = zhEvent ? {
       date:        zhEvent.date,
       name:        zhEvent.name,
@@ -233,16 +246,10 @@ const ChurchAPI = {
     return { success: true, source: 'LKCschedule', data: { taiwanese: twService, mandarin: zhService, upcoming } };
   },
 
-  // ==========================================
-  // LKC_Attendance - 點名（跨域限制）
-  // ==========================================
   async fetchAttendance() {
     return { success: false, source: 'LKC_Attendance', error: '出席人數請手動填入' };
   },
 
-  // ==========================================
-  // LKGroup - 小組
-  // ==========================================
   async fetchSmallGroups(date) {
     try {
       const results = {};
@@ -273,9 +280,6 @@ const ChurchAPI = {
     }
   },
 
-  // ==========================================
-  // 整合帶入
-  // ==========================================
   async fetchAll(date) {
     const [calendar, service, worship, attendance, smallGroups] = await Promise.allSettled([
       this.fetchCalendarForDate(date),
