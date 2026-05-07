@@ -3,6 +3,14 @@
 const App = {
   _autoSaveTimer: null,
 
+  // 格式化本地日期串 (YYYY-MM-DD)，不用 toISOString 防止時區偏移額
+  _formatLocalDate(d) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  },
+
   async init() {
     console.log('[App] 初始化教會週報管理系統...');
 
@@ -10,7 +18,7 @@ const App = {
     const daysToSunday = today.getDay() === 0 ? 0 : 7 - today.getDay();
     const nextSunday = new Date(today);
     nextSunday.setDate(today.getDate() + daysToSunday);
-    const sundayStr = nextSunday.toISOString().split('T')[0];
+    const sundayStr = this._formatLocalDate(nextSunday);
 
     document.getElementById('bulletinDate').value = sundayStr;
     BulletinModel.init(sundayStr);
@@ -39,8 +47,9 @@ const App = {
       // 計算下週日期並存入 model（供匯出使用）
       const nextD = new Date(d);
       nextD.setDate(d.getDate() + 7);
+      const nextDate = this._formatLocalDate(nextD);
       BulletinModel.set('ministry.thisWeek.date', date);
-      BulletinModel.set('ministry.nextWeek.date', nextD.toISOString().split('T')[0]);
+      BulletinModel.set('ministry.nextWeek.date', nextDate);
     }
   },
 
@@ -118,15 +127,14 @@ const App = {
     }
   },
 
-  // 服事人員 tab 同工帶入：本週 + 下週 同時抓（6 個並行請求）
-  // 下週使用 requireMatch=true：找不到日期則留空，不記載本週的資料
+  // 服事人員 tab 同工帶入：本週 + 下週 同時扃(6 個並行請求)
   async fetchMinistry() {
     const date = document.getElementById('bulletinDate').value;
     if (!date) { this.showToast('請先選擇日期', 'error'); return; }
 
     const nextD = new Date(date + 'T00:00:00');
     nextD.setDate(nextD.getDate() + 7);
-    const nextDate = nextD.toISOString().split('T')[0];
+    const nextDate = this._formatLocalDate(nextD);
 
     this.showLoading(true);
     this.showToast('正在帶入服事人員資料（本週 + 下週）...', 'info');
@@ -136,8 +144,8 @@ const App = {
         ChurchAPI.fetchServiceSchedule(date),
         ChurchAPI.fetchWorshipSchedule(date),
         ChurchAPI.fetchCalendarForDate(nextDate),
-        ChurchAPI.fetchServiceSchedule(nextDate, true),  // requireMatch: 不回落加本週則
-        ChurchAPI.fetchWorshipSchedule(nextDate, true)   // requireMatch: 不回落加本週則
+        ChurchAPI.fetchServiceSchedule(nextDate, true),
+        ChurchAPI.fetchWorshipSchedule(nextDate, true)
       ]);
       const v = s => s.status === 'fulfilled' ? s.value : { success: false, error: s.reason?.message };
 
