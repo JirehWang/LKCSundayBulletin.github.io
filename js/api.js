@@ -63,6 +63,7 @@ const ChurchAPI = {
         success: true, source: 'LKC1958_June_1',
         data: {
           mc:        r['司會'] || r['司儀'] || '',
+          zhMc:      r['華語司會'] || r['國語司會'] || r['普通話司會'] || r['華語司儀'] || '',
           choir:     r['詩班'] || '',
           usher:     r['招待/停車'] || r['招待'] || '',
           chairman:  r['主席'] || r['主理'] || '',

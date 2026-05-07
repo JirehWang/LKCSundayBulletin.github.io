@@ -104,20 +104,21 @@ const BulletinModel = {
   applyAPIData(apiResults) {
     const { calendar, service, worship, attendance, smallGroups } = apiResults;
 
+    // LKCschedule: 講員=主理者, 講題=講道題目, 經文=聖經經文
     if (calendar?.success) {
       const { taiwanese: tw, mandarin: zh, upcoming } = calendar.data;
       if (tw) {
-        this.set('taiwanese.scripture',    tw.scripture    || '');
+        this.set('taiwanese.presider',     tw.speaker      || '');
         this.set('taiwanese.sermonTitle',  tw.sermonTitle  || '');
+        this.set('taiwanese.scripture',    tw.scripture    || '');
         this.set('taiwanese.callToWorship',tw.callToWorship|| '');
         this.set('taiwanese.goldenVerse',  tw.goldenVerse  || '');
-        if (tw.hymn)    this.set('taiwanese.openingHymn', tw.hymn);
-        if (tw.speaker) this.set('taiwanese.presider',    tw.speaker);
+        if (tw.hymn) this.set('taiwanese.openingHymn', tw.hymn);
       }
       if (zh) {
-        this.set('mandarin.scripture',   zh.scripture   || '');
-        this.set('mandarin.sermonTitle', zh.sermonTitle || '');
-        if (zh.speaker) this.set('mandarin.presider', zh.speaker);
+        this.set('mandarin.presider',    zh.speaker      || '');
+        this.set('mandarin.sermonTitle', zh.sermonTitle  || '');
+        this.set('mandarin.scripture',   zh.scripture    || '');
       }
       if (upcoming) {
         this.set('events', upcoming.slice(0, 15).map(e => ({
@@ -126,19 +127,25 @@ const BulletinModel = {
       }
     }
 
+    // LKC1958: 司會者（台語 mc、華語 zhMc）、服事人員排班
     if (service?.success) {
       const d = service.data;
-      this.set('ministry.thisWeek.tw.mc',            d.mc          || '');
-      this.set('ministry.thisWeek.tw.presider',      d.chairman    || '');
-      this.set('ministry.thisWeek.tw.choir',         d.choir       || '');
-      this.set('ministry.thisWeek.tw.usher',         d.usher       || '');
-      this.set('ministry.thisWeek.tw.preMeetingSong',d.songLeader  || '');
+      // 主日程序 tab
+      this.set('taiwanese.mc', d.mc   || '');
+      this.set('mandarin.mc',  d.zhMc || '');
+      // 服事人員 tab
+      this.set('ministry.thisWeek.tw.mc',            d.mc         || '');
+      this.set('ministry.thisWeek.tw.presider',      d.chairman   || '');
+      this.set('ministry.thisWeek.tw.choir',         d.choir      || '');
+      this.set('ministry.thisWeek.tw.usher',         d.usher      || '');
+      this.set('ministry.thisWeek.tw.preMeetingSong',d.songLeader || '');
     }
 
+    // LKworship: 司琴（台語）、敬拜團主領與配置
     if (worship?.success) {
       const w = worship.data;
-      this.set('ministry.thisWeek.zh.worship', w.leader || '');
-      this.set('mandarin.mc',                  w.leader || '');
+      this.set('taiwanese.pianist',            w.pianist || '');
+      this.set('ministry.thisWeek.zh.worship', w.leader  || '');
     }
 
     if (attendance?.success) {
