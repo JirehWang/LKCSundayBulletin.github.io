@@ -36,19 +36,11 @@ const App = {
       document.getElementById('dateDisplay').textContent =
         `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
 
-      // 自動計算本週（= 主日日期）與下週（+7天）日期
+      // 計算下週日期並存入 model（供匯出使用）
       const nextD = new Date(d);
       nextD.setDate(d.getDate() + 7);
-      const nextDate = nextD.toISOString().split('T')[0];
-
       BulletinModel.set('ministry.thisWeek.date', date);
-      BulletinModel.set('ministry.nextWeek.date', nextDate);
-
-      // 直接更新 DOM，避免等待 syncFormFromModel
-      const el1 = document.querySelector('[data-field="ministry.thisWeek.date"]');
-      const el2 = document.querySelector('[data-field="ministry.nextWeek.date"]');
-      if (el1) el1.value = date;
-      if (el2) el2.value = nextDate;
+      BulletinModel.set('ministry.nextWeek.date', nextD.toISOString().split('T')[0]);
     }
   },
 
@@ -126,32 +118,40 @@ const App = {
     }
   },
 
-  // 服事人員 tab 同工帶入：LKCschedule（主理）+ LKC1958 排班 + LKworship 敬拜團
+  // 服事人員 tab 同工帶入：本週 + 下週 同時抓（6 個並行請求）
   async fetchMinistry() {
     const date = document.getElementById('bulletinDate').value;
     if (!date) { this.showToast('請先選擇日期', 'error'); return; }
+
+    const nextD = new Date(date + 'T00:00:00');
+    nextD.setDate(nextD.getDate() + 7);
+    const nextDate = nextD.toISOString().split('T')[0];
+
     this.showLoading(true);
-    this.showToast('正在帶入服事人員資料...', 'info');
+    this.showToast('正在帶入服事人員資料（本週 + 下週）...', 'info');
     try {
-      const [calSettled, svcSettled, worSettled] = await Promise.allSettled([
+      const [calS, svcS, worS, nextCalS, nextSvcS, nextWorS] = await Promise.allSettled([
         ChurchAPI.fetchCalendarForDate(date),
         ChurchAPI.fetchServiceSchedule(date),
-        ChurchAPI.fetchWorshipSchedule(date)
+        ChurchAPI.fetchWorshipSchedule(date),
+        ChurchAPI.fetchCalendarForDate(nextDate),
+        ChurchAPI.fetchServiceSchedule(nextDate),
+        ChurchAPI.fetchWorshipSchedule(nextDate)
       ]);
-      const calResult = calSettled.status === 'fulfilled' ? calSettled.value : { success: false, error: calSettled.reason?.message };
-      const svcResult = svcSettled.status === 'fulfilled' ? svcSettled.value : { success: false, error: svcSettled.reason?.message };
-      const worResult = worSettled.status === 'fulfilled' ? worSettled.value : { success: false, error: worSettled.reason?.message };
+      const v = s => s.status === 'fulfilled' ? s.value : { success: false, error: s.reason?.message };
 
-      BulletinModel.applyAPIData({ calendar: calResult, service: svcResult, worship: worResult });
+      BulletinModel.applyAPIData(      { calendar: v(calS),     service: v(svcS),     worship: v(worS)     });
+      BulletinModel.applyNextWeekAPIData({ calendar: v(nextCalS), service: v(nextSvcS), worship: v(nextWorS) });
       this.syncFormFromModel();
 
       const failed = [
-        !calResult.success && `行事曆（${calResult.error || ''}）`,
-        !svcResult.success && `服事排班（${svcResult.error || ''}）`,
-        !worResult.success && `敬拜團（${worResult.error || ''}）`
+        !v(svcS).success    && `本週服事排班（${v(svcS).error    || ''}）`,
+        !v(worS).success    && `本週敬拜團（${v(worS).error      || ''}）`,
+        !v(nextSvcS).success && `下週服事排班（${v(nextSvcS).error || ''}）`,
+        !v(nextWorS).success && `下週敬拜團（${v(nextWorS).error  || ''}）`
       ].filter(Boolean);
       this.showToast(
-        failed.length ? `帶入完成，請手動確認：${failed.join('、')}` : '服事人員資料帶入完成',
+        failed.length ? `帶入完成，請手動確認：${failed.join('、')}` : '服事人員資料帶入完成（本週＋下週）',
         failed.length ? 'warning' : 'success'
       );
     } catch (err) {

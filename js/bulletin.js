@@ -152,10 +152,9 @@ const BulletinModel = {
       this.set('ministry.thisWeek.zh.mc',            d.zhMc         || '');
     }
 
-    // LKworship: 敬拜團主領與配置
+    // LKworship: 敬拜團主領
     if (worship?.success) {
-      const w = worship.data;
-      this.set('ministry.thisWeek.zh.worship', w.leader || '');
+      this.set('ministry.thisWeek.zh.worship', worship.data.leader || '');
     }
 
     if (attendance?.success) {
@@ -170,6 +169,33 @@ const BulletinModel = {
       for (const g of Object.keys(cur)) {
         if (sg[g]) cur[g] = sg[g].attendance || 0;
       }
+    }
+  },
+
+  // 下週服事人員：映射到 ministry.nextWeek.*
+  applyNextWeekAPIData(apiResults) {
+    const { calendar, service, worship } = apiResults;
+
+    if (calendar?.success) {
+      const { taiwanese: tw, mandarin: zh } = calendar.data;
+      if (tw) this.set('ministry.nextWeek.tw.presider', tw.speaker || '');
+      if (zh) this.set('ministry.nextWeek.zh.presider', zh.speaker || '');
+    }
+
+    if (service?.success) {
+      const d = service.data;
+      this.set('ministry.nextWeek.tw.mc',            d.mc           || '');
+      this.set('ministry.nextWeek.tw.pianist',       d.pianist      || '');
+      this.set('ministry.nextWeek.tw.choir',         d.choir        || '');
+      this.set('ministry.nextWeek.tw.usher',         d.usher        || '');
+      this.set('ministry.nextWeek.tw.preMeetingSong',d.songLeader   || '');
+      this.set('ministry.nextWeek.tw.soundControl',  d.soundControl || '');
+      this.set('ministry.nextWeek.tw.newcomerCare',  d.newcomerCare || '');
+      this.set('ministry.nextWeek.zh.mc',            d.zhMc         || '');
+    }
+
+    if (worship?.success) {
+      this.set('ministry.nextWeek.zh.worship', worship.data.leader || '');
     }
   }
 };
