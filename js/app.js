@@ -119,6 +119,7 @@ const App = {
   },
 
   // 服事人員 tab 同工帶入：本週 + 下週 同時抓（6 個並行請求）
+  // 下週使用 requireMatch=true：找不到日期則留空，不記載本週的資料
   async fetchMinistry() {
     const date = document.getElementById('bulletinDate').value;
     if (!date) { this.showToast('請先選擇日期', 'error'); return; }
@@ -135,8 +136,8 @@ const App = {
         ChurchAPI.fetchServiceSchedule(date),
         ChurchAPI.fetchWorshipSchedule(date),
         ChurchAPI.fetchCalendarForDate(nextDate),
-        ChurchAPI.fetchServiceSchedule(nextDate),
-        ChurchAPI.fetchWorshipSchedule(nextDate)
+        ChurchAPI.fetchServiceSchedule(nextDate, true),  // requireMatch: 不回落加本週則
+        ChurchAPI.fetchWorshipSchedule(nextDate, true)   // requireMatch: 不回落加本週則
       ]);
       const v = s => s.status === 'fulfilled' ? s.value : { success: false, error: s.reason?.message };
 

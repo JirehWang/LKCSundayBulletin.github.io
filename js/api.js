@@ -46,11 +46,10 @@ const ChurchAPI = {
   // ==========================================
   // LKC1958 - 服事排班
   //
-  // getAggregatedReport('others') 回傳合併表，同一日期可能有多列
-  // （每列來自不同工作表：司會班表、司琴班表、音控班表…）
-  // 解法：合併所有符合日期的列，每欄取第一個非空值
+  // requireMatch=true: 找不到符合日期的列時回傳空結果（不回落加最後一列）
+  //   主要用於查詢下週：如果下週尚未登錄則留空，不記載本週則的資料
   // ==========================================
-  async fetchServiceSchedule(sundayDate) {
+  async fetchServiceSchedule(sundayDate, requireMatch = false) {
     try {
       const result = await this.callLKC1958('getAggregatedReport', { type: 'others' });
       console.log('[LKC1958] raw response:', JSON.stringify(result).substring(0, 500));
@@ -76,9 +75,19 @@ const ChurchAPI = {
           '| 音控:', row[headers.indexOf('音控同工')])
       );
 
+      // 找不到符合日期的列：根據 requireMatch 決定是否回落加最後一列
+      let sourceRows;
+      if (matchingRows.length > 0) {
+        sourceRows = matchingRows;
+      } else if (requireMatch) {
+        console.log('[LKC1958] 沒有符合', sundayDate, '的列，且 requireMatch=true，回傳空結果');
+        return { success: false, source: 'LKC1958_June_1', error: '查無資料' };
+      } else {
+        sourceRows = [rows[rows.length - 1] || []];
+      }
+
       // 合併所有符合日期的列：每個欄位取第一個非空值
       const r = {};
-      const sourceRows = matchingRows.length > 0 ? matchingRows : [rows[rows.length - 1] || []];
       headers.forEach((h, i) => {
         if (!h) return;
         for (const row of sourceRows) {
@@ -116,8 +125,10 @@ const ChurchAPI = {
 
   // ==========================================
   // LKworship - 敬拜團
+  //
+  // requireMatch=true: 找不到日期時回傳空結果（不回落加最後一列）
   // ==========================================
-  async fetchWorshipSchedule(date) {
+  async fetchWorshipSchedule(date, requireMatch = false) {
     try {
       const d = new Date(date);
       const year    = d.getFullYear();
@@ -129,11 +140,13 @@ const ChurchAPI = {
       const scheduleData = this._unwrap(result);
       let row = null;
       if (Array.isArray(scheduleData)) {
-        row = scheduleData.find(r => this._dateMatch(r['日期'] || r[0], date))
-          || scheduleData[scheduleData.length - 1] || null;
+        row = scheduleData.find(r => this._dateMatch(r['日期'] || r[0], date)) || null;
+        if (!row && !requireMatch) {
+          row = scheduleData[scheduleData.length - 1] || null;
+        }
       }
 
-      console.log('[LKworship] 本週資料:', row);
+      console.log('[LKworship] 資料 (', date, '):', row ? (row['日期'] || row[0]) : '無資料');
 
       let singers = '';
       if (row) {
