@@ -85,6 +85,33 @@ const App = {
     }
   },
 
+  // 主日程序 tab 自動帶入：同時抓 LKCschedule + LKC1958
+  async fetchServiceProgram() {
+    const date = document.getElementById('bulletinDate').value;
+    if (!date) { this.showToast('請先選擇日期', 'error'); return; }
+    this.showLoading(true);
+    this.showToast('正在帶入主日程序資料...', 'info');
+    try {
+      const [calResult, svcResult] = await Promise.all([
+        ChurchAPI.fetchCalendarForDate(date),
+        ChurchAPI.fetchServiceSchedule(date)
+      ]);
+      BulletinModel.applyAPIData({ calendar: calResult, service: svcResult });
+      this.syncFormFromModel();
+
+      const msgs = [];
+      if (!calResult.success) msgs.push(`行事曆失敗: ${calResult.error}`);
+      else if (!calResult.data?.taiwanese && !calResult.data?.mandarin) msgs.push(`找不到 ${date} 的講道資訊`);
+      if (!svcResult.success) msgs.push(`服事排班失敗: ${svcResult.error}`);
+
+      this.showToast(msgs.length ? msgs.join('；') : '主日程序資料帶入完成', msgs.length ? 'warning' : 'success');
+    } catch (err) {
+      this.showToast('帶入失敗：' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
   async fetchSection(section) {
     const date = document.getElementById('bulletinDate').value;
     if (!date) { this.showToast('請先選擇日期', 'error'); return; }
@@ -223,10 +250,10 @@ const App = {
     const i = idx !== null ? idx : c.children.length;
     const div = document.createElement('div'); div.className = 'dynamic-row'; div.dataset.idx = i;
     div.innerHTML = `
-      <input type="date" class="form-input" value="${ev?.date||''}" onchange="App._updateEvent(${i},'date',this.value)">
-      <input type="text" class="form-input" value="${ev?.name||''}" oninput="App._updateEvent(${i},'name',this.value)">
-      <input type="text" class="form-input flex-2" value="${ev?.description||''}" oninput="App._updateEvent(${i},'description',this.value)">
-      <button class="btn-icon btn-danger" onclick="App._removeEvent(${i})">✕</button>`;
+      <input type="date" class="form-input" value="${ev?.date||""}" onchange="App._updateEvent(${i},'date',this.value)">
+      <input type="text" class="form-input" value="${ev?.name||""}" oninput="App._updateEvent(${i},'name',this.value)">
+      <input type="text" class="form-input flex-2" value="${ev?.description||""}" oninput="App._updateEvent(${i},'description',this.value)">
+      <button class="btn-icon btn-danger" onclick="App._removeEvent(${i})">&#x2715;</button>`;
     c.appendChild(div);
   },
   _updateEvent(i, f, v) { const d = BulletinModel.get(); if (!d.events[i]) d.events[i]={}; d.events[i][f]=v; },
@@ -237,10 +264,10 @@ const App = {
     const i = idx !== null ? idx : c.children.length;
     const div = document.createElement('div'); div.className = 'dynamic-row'; div.dataset.idx = i;
     div.innerHTML = `
-      <input type="text" class="form-input" value="${item?.name||''}"   oninput="App._updateOffering(${i},'name',this.value)">
-      <input type="text" class="form-input" value="${item?.amount||''}" oninput="App._updateOffering(${i},'amount',this.value)">
-      <input type="text" class="form-input" value="${item?.note||''}"   oninput="App._updateOffering(${i},'note',this.value)">
-      <button class="btn-icon btn-danger" onclick="App._removeOffering(${i})">✕</button>`;
+      <input type="text" class="form-input" value="${item?.name||""}"   oninput="App._updateOffering(${i},'name',this.value)">
+      <input type="text" class="form-input" value="${item?.amount||""}" oninput="App._updateOffering(${i},'amount',this.value)">
+      <input type="text" class="form-input" value="${item?.note||""}"   oninput="App._updateOffering(${i},'note',this.value)">
+      <button class="btn-icon btn-danger" onclick="App._removeOffering(${i})">&#x2715;</button>`;
     c.appendChild(div);
   },
   _updateOffering(i, f, v) { const d = BulletinModel.get(); if (!d.offeringReport.monthlyItems[i]) d.offeringReport.monthlyItems[i]={}; d.offeringReport.monthlyItems[i][f]=v; },
@@ -250,7 +277,7 @@ const App = {
     const c = document.getElementById('toastContainer'); if (!c) return;
     const t = document.createElement('div'); t.className = `toast toast-${type}`; t.textContent = message; c.appendChild(t);
     setTimeout(() => t.classList.add('show'), 10);
-    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3500);
+    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 4500);
   },
 
   showLoading(show) {
