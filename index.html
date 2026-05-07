@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>樂迦拜教會 - 週報管理系統</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- docx 與 FileSaver CDN -->
+  <script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body>
+
+<!-- ==========================================
+     頁首
+     ========================================== -->
+<header class="app-header">
+  <div class="header-top">
+    <div class="header-brand">
+      <span class="church-icon">✝️</span>
+      <div>
+        <h1>樂迦拜教會週報管理</h1>
+        <div class="subtitle">Lekana Christian Presbyterian Church</div>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <div class="date-picker-group">
+        <label for="bulletinDate">主日日期：</label>
+        <input type="date" id="bulletinDate">
+        <span id="dateDisplay"></span>
+      </div>
+      <button class="btn btn-white" id="btnFetchAll" title="從所有 API 帶入資料">
+        ⬇️ 全部帶入
+      </button>
+      <button class="btn btn-outline-white" id="btnSaveDraft">
+        💾 儲存草稿
+      </button>
+      <button class="btn btn-outline-white" id="btnLoadDraft">
+        📂 轉入草稿
+      </button>
+      <button class="btn btn-warning" id="btnExportWord">
+        📄 匯出 Word
+      </button>
+    </div>
+  </div>
+
+  <!-- 標籤頁導航 -->
+  <nav class="tabs-nav">
+    <button class="tab-btn active" data-tab="service">🏬 主日程序</button>
+    <button class="tab-btn" data-tab="ministry">👥 服事人員</button>
+    <button class="tab-btn" data-tab="attendance">📊 聚會統計</button>
+    <button class="tab-btn" data-tab="events">📅 活動預告</button>
+    <button class="tab-btn" data-tab="announcements">📢 本會消息</button>
+    <button class="tab-btn" data-tab="prayer">🙏 關懷代禱</button>
+    <button class="tab-btn" data-tab="offering">💰 奉獻報告</button>
+  </nav>
+</header>
+
+<main class="app-main">
+
+<!-- ==========================================
+     Tab 1: 主日程序
+     ========================================== -->
+<div id="tab-service" class="tab-panel active">
+
+  <div class="card">
+    <div class="card-header">
+      <h3>🏬 主日禮拜程序</h3>
+      <div class="card-actions">
+        <span class="source-badge">來源: LKCschedule</span>
+        <button class="btn btn-primary btn-sm" onclick="App.fetchSection('calendar')">⬇️ 自動帶入</button>
+      </div>
+    </div>
+    <div class="card-body">
+
+      <div class="service-grid">
+        <!-- 台語欄 -->
+        <div class="service-column tw-column">
+          <h4>🌊 台語主日禮拜（一樓）</h4>
+
+          <div class="form-group">
+            <label>主理者 <span class="manual-tag">手動</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.presider" placeholder="楊承恩牧師">
+          </div>
+          <div class="form-group">
+            <label>司會者 <span class="source-tag">LKC1958</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.mc" placeholder="">
+          </div>
+          <div class="form-group">
+            <label>司琴者 <span class="source-tag">LKC1958</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.pianist" placeholder="">
+          </div>
+
+          <div class="section-label">「等候上帝的話」</div>
+          <div class="form-group">
+            <label>宣召經文 <span class="source-tag">LKCschedule</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.callToWorship" placeholder="如：詩第100篇">
+          </div>
+          <div class="form-group">
+            <label>序樂後聖詩號碼 <span class="source-tag">LKCschedule</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.openingHymn" placeholder="號碼">
+          </div>
+
+          <div class="section-label">「領受上帝的話」</div>
+          <div class="form-group">
+            <label>啟應文第 X 篇 <span class="manual-tag">手動</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.responsivePsalm" placeholder="篇數">
+          </div>
+          <div class="form-group">
+            <label>祈禱備註 <span class="manual-tag">手動</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.prayer1Note" placeholder="如：+主祷文">
+          </div>
+          <div class="form-group">
+            <label>聖經經文 <span class="source-tag">LKCschedule</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.scripture" placeholder="如：約翹3:16">
+          </div>
+          <div class="form-group">
+            <label>讚美（聖歌隊） <span class="manual-tag">手動</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.choirSong" placeholder="詩名">
+          </div>
+          <div class="form-group">
+            <label>講道題目 <span class="source-tag">LKCschedule</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.sermonTitle" placeholder="講道題目">
+          </div>
+
+          <div class="section-label">「回應上帝的話」</div>
+          <div class="form-group">
+            <label>回應聖詩號碼 <span class="source-tag">LKCschedule</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.responseHymn" placeholder="號碼">
+          </div>
+          <div class="form-group">
+            <label>金句經文 <span class="source-tag">LKCschedule</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.goldenVerse" placeholder="如：加拉1:4">
+          </div>
+          <div class="form-group">
+            <label>奉獻備註 <span class="manual-tag">手動</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.offeringNote" placeholder="">
+          </div>
+          <div class="form-group">
+            <label>頌榮號碼 <span class="manual-tag">手動</span></label>
+            <input type="text" class="form-input" data-field="taiwanese.doxologyHymn" placeholder="號碼">
+          </div>
+
+          <div class="section-label">「實行上帝的話」</div>
+          <div class="form-group">
+            <label>教會奉獻帳戶 <span class="manual-tag">手動</span></label>
+            <textarea class="form-input" data-field="taiwanese.bankAccount" rows="3" placeholder="銀行帳戶資訊"></textarea>
+          </div>
+        </div>
+
+        <!-- 華語欄 -->
+        <div class="service-column zh-column">
+          <h4>🌿 華語主日禮拜（三樓）</h4>
+
+          <div class="form-group">
+            <label>主理者 <span class="manual-tag">手動</span></label>
+            <input type="text" class="form-input" data-field="mandarin.presider" placeholder="郭懷智同學">
+          </div>
+          <div class="form-group">
+            <label>司會者 <span class="source-tag">LKworship</span></label>
+            <input type="text" class="form-input" data-field="mandarin.mc" placeholder="">
+          </div>
+
+          <div class="section-label">「等候上帝的話」</div>
+          <p class="hint">序樂（敬拜團）/ 宣召（司會者）/ 敬拜讚美（敬拜團）/ 使徒信經（會眾）—固定程序</p>
+
+          <div class="section-label">「領受上帝的話」</div>
+          <div class="form-group">
+            <label>聖經經文 <span class="source-tag">LKCschedule</span></label>
+            <input type="text" class="form-input" data-field="mandarin.scripture" placeholder="如：約翹3:16">
+          </div>
+          <div class="form-group">
+            <label>講道題目 <span class="source-tag">LKCschedule</span></label>
+            <input type="text" class="form-input" data-field="mandarin.sermonTitle" placeholder="講道題目">
+          </div>
+
+          <div class="section-label">「回應上帝的話」</div>
+          <p class="hint">回應詩（平安禮）/ 報告 / 奉獻 / 祝祷—固定程序</p>
+
+          <div class="section-label">「實行上帝的話」</div>
+          <div class="form-group">
+            <label>活動預告（文字說明） <span class="manual-tag">手動</span></label>
+            <textarea class="form-input" data-field="mandarin.upcomingPreview" rows="4" placeholder="即將活動簡要說明，或請見第二頁活動預告表"></textarea>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================
+     Tab 2: 服事人員
+     ========================================== -->
+<div id="tab-ministry" class="tab-panel">
+
+  <div class="card">
+    <div class="card-header">
+      <h3>👥 服事人員排班</h3>
+      <div class="card-actions">
+        <span class="source-badge">來源: LKC1958 + LKworship</span>
+        <button class="btn btn-primary btn-sm" onclick="App.fetchSection('service')">⬇️ 帶入台語排班</button>
+        <button class="btn btn-secondary btn-sm" onclick="App.fetchSection('worship')">⬇️ 帶入敬拜團</button>
+      </div>
+    </div>
+    <div class="card-body">
+
+      <!-- 日期列 -->
+      <div class="form-grid-2" style="margin-bottom:16px">
+        <div class="form-group">
+          <label>本週日期</label>
+          <input type="date" class="form-input" data-field="ministry.thisWeek.date">
+        </div>
+        <div class="form-group">
+          <label>下週日期</label>
+          <input type="date" class="form-input" data-field="ministry.nextWeek.date">
+        </div>
+      </div>
+
+      <div class="ministry-tables">
+        <!-- 台語週服表 -->
+        <div>
+          <h4 style="margin-bottom:10px;color:var(--primary)">🌊 台語禮拜週服事人員</h4>
+          <table class="ministry-table">
+            <thead>
+              <tr>
+                <th>分工</th>
+                <th>本週</th>
+                <th>下週</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>主理/司會</td>
+                <td><input type="text" data-field="ministry.thisWeek.tw.presider" placeholder="主理"></td>
+                <td><input type="text" data-field="ministry.nextWeek.tw.presider" placeholder="主理"></td></tr>
+              <tr><td>司眴</td>
+                <td><input type="text" data-field="ministry.thisWeek.tw.mc" placeholder="司會"></td>
+                <td><input type="text" data-field="ministry.nextWeek.tw.mc" placeholder="司會"></td></tr>
+              <tr><td>司琴</td>
+                <td><input type="text" data-field="ministry.thisWeek.tw.pianist" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.tw.pianist" placeholder=""></td></tr>
+              <tr><td>招待.司獻</td>
+                <td><input type="text" data-field="ministry.thisWeek.tw.usher" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.tw.usher" placeholder=""></td></tr>
+              <tr><td>新家人關懷</td>
+                <td><input type="text" data-field="ministry.thisWeek.tw.newcomerCare" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.tw.newcomerCare" placeholder=""></td></tr>
+              <tr><td>獻花</td>
+                <td><input type="text" data-field="ministry.thisWeek.tw.flower" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.tw.flower" placeholder=""></td></tr>
+              <tr><td>會前領唱</td>
+                <td><input type="text" data-field="ministry.thisWeek.tw.preMeetingSong" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.tw.preMeetingSong" placeholder=""></td></tr>
+              <tr><td>獻詩(聖歌隊)</td>
+                <td><input type="text" data-field="ministry.thisWeek.tw.choir" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.tw.choir" placeholder=""></td></tr>
+              <tr><td>音控</td>
+                <td><input type="text" data-field="ministry.thisWeek.tw.soundControl" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.tw.soundControl" placeholder=""></td></tr>
+              <tr><td>成人主日學A</td>
+                <td><input type="text" data-field="ministry.thisWeek.tw.sundaySchoolA" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.tw.sundaySchoolA" placeholder=""></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 華語週服表 -->
+        <div>
+          <h4 style="margin-bottom:10px;color:var(--secondary)">🌿 華語禮拜週服事人員</h4>
+          <table class="ministry-table">
+            <thead>
+              <tr>
+                <th>分工</th>
+                <th>本週</th>
+                <th>下週</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>主理</td>
+                <td><input type="text" data-field="ministry.thisWeek.zh.presider" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.zh.presider" placeholder=""></td></tr>
+              <tr><td>司會</td>
+                <td><input type="text" data-field="ministry.thisWeek.zh.mc" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.zh.mc" placeholder=""></td></tr>
+              <tr><td>敬拜</td>
+                <td><input type="text" data-field="ministry.thisWeek.zh.worship" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.zh.worship" placeholder=""></td></tr>
+              <tr><td>招待.司獻</td>
+                <td><input type="text" data-field="ministry.thisWeek.zh.usher" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.zh.usher" placeholder=""></td></tr>
+              <tr><td>新家人關懷</td>
+                <td><input type="text" data-field="ministry.thisWeek.zh.newcomerCare" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.zh.newcomerCare" placeholder=""></td></tr>
+              <tr><td>成人主日學B</td>
+                <td><input type="text" data-field="ministry.thisWeek.zh.sundaySchoolB" placeholder=""></td>
+                <td><input type="text" data-field="ministry.nextWeek.zh.sundaySchoolB" placeholder=""></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================
+     Tab 3: 聚會統計
+     ========================================== -->
+<div id="tab-attendance" class="tab-panel">
+
+  <div class="card">
+    <div class="card-header">
+      <h3>📊 聚會人數及奉獻</h3>
+      <div class="card-actions">
+        <span class="source-badge">來源: LKC_Attendance + LKGroup</span>
+        <button class="btn btn-primary btn-sm" onclick="App.fetchSection('attendance')">⬇️ 帶入出席</button>
+        <button class="btn btn-secondary btn-sm" onclick="App.fetchSection('smallGroups')">⬇️ 帶入小組</button>
+      </div>
+    </div>
+    <div class="card-body">
+
+      <!-- 主日禮拜 -->
+      <div class="section-divider"><span>主日禮拜</span></div>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label>台語禮拜人數 <span class="source-tag">LKC_Attendance</span></label>
+          <input type="number" class="form-input" data-field="attendance.twService" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>華語禮拜人數 <span class="source-tag">LKC_Attendance</span></label>
+          <input type="number" class="form-input" data-field="attendance.zhService" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>聖歌隊人數 <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.choir" min="0" value="0">
+        </div>
+      </div>
+
+      <!-- 其他聚會 -->
+      <div class="section-divider"><span>其他聚會</span></div>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label>查經班 <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.bibleStudy" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>週間聚會 <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.weeklyMeeting" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>早禱會 <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.morningPrayer" min="0" value="0">
+        </div>
+      </div>
+
+      <!-- 主日學 -->
+      <div class="section-divider"><span>主日學</span></div>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label>幼小班 <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.sundaySchool.幼小班" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>初小班 <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.sundaySchool.初小班" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>中小班 <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.sundaySchool.中小班" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>高小班 <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.sundaySchool.高小班" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>青少年班 <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.sundaySchool.青少年班" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>成人A班 <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.sundaySchool.成人A班" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>成人B班 <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.sundaySchool.成人B班" min="0" value="0">
+        </div>
+      </div>
+
+      <!-- 小組 -->
+      <div class="section-divider"><span>各小組 <span class="badge badge-api">LKGroup</span></span></div>
+      <div class="small-groups-grid">
+        <div class="small-group-item"><label>葡萄樹A</label><input type="number" data-group="葡萄樹A" min="0" value="0" onchange="App._updateGroup('葡萄樹A', this.value)"></div>
+        <div class="small-group-item"><label>葡萄樹B</label><input type="number" data-group="葡萄樹B" min="0" value="0" onchange="App._updateGroup('葡萄樹B', this.value)"></div>
+        <div class="small-group-item"><label>恩典團契</label><input type="number" data-group="恩典團契" min="0" value="0" onchange="App._updateGroup('恩典團契', this.value)"></div>
+        <div class="small-group-item"><label>橄欖樹</label><input type="number" data-group="橄欖樹" min="0" value="0" onchange="App._updateGroup('橄欖樹', this.value)"></div>
+        <div class="small-group-item"><label>板年團契</label><input type="number" data-group="板年團契" min="0" value="0" onchange="App._updateGroup('板年團契', this.value)"></div>
+        <div class="small-group-item"><label>學青</label><input type="number" data-group="學青" min="0" value="0" onchange="App._updateGroup('學青', this.value)"></div>
+        <div class="small-group-item"><label>棕樹A</label><input type="number" data-group="棕樹A" min="0" value="0" onchange="App._updateGroup('棕樹A', this.value)"></div>
+        <div class="small-group-item"><label>棕樹B</label><input type="number" data-group="棕樹B" min="0" value="0" onchange="App._updateGroup('棕樹B', this.value)"></div>
+        <div class="small-group-item"><label>香柏樹</label><input type="number" data-group="香柏樹" min="0" value="0" onchange="App._updateGroup('香柏樹', this.value)"></div>
+        <div class="small-group-item"><label>提摩太</label><input type="number" data-group="提摩太" min="0" value="0" onchange="App._updateGroup('提摩太', this.value)"></div>
+        <div class="small-group-item"><label>以斯帖</label><input type="number" data-group="以斯帖" min="0" value="0" onchange="App._updateGroup('以斯帖', this.value)"></div>
+        <div class="small-group-item"><label>芥菜種A</label><input type="number" data-group="芥菜種A" min="0" value="0" onchange="App._updateGroup('芥菜種A', this.value)"></div>
+        <div class="small-group-item"><label>芥菜種B</label><input type="number" data-group="芥菜種B" min="0" value="0" onchange="App._updateGroup('芥菜種B', this.value)"></div>
+        <div class="small-group-item"><label>芥菜種C</label><input type="number" data-group="芥菜種C" min="0" value="0" onchange="App._updateGroup('芥菜種C', this.value)"></div>
+        <div class="small-group-item"><label>恩典幸福小組</label><input type="number" data-group="恩典幸福小組" min="0" value="0" onchange="App._updateGroup('恩典幸福小組', this.value)"></div>
+        <div class="small-group-item"><label>棕樹幸福小組</label><input type="number" data-group="棕樹幸福小組" min="0" value="0" onchange="App._updateGroup('棕樹幸福小組', this.value)"></div>
+      </div>
+
+      <!-- 奉獻 -->
+      <div class="section-divider"><span>奉獻金額</span></div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>台語奉獻 (NT$) <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.twOffering" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>華語奉獻 (NT$) <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.zhOffering" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>華語奉獻2 (NT$) <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.zhOffering2" min="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>主日學奉獻 (NT$) <span class="manual-tag">手動</span></label>
+          <input type="number" class="form-input" data-field="attendance.sundaySchoolOffering" min="0" value="0">
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================
+     Tab 4: 活動預告
+     ========================================== -->
+<div id="tab-events" class="tab-panel">
+
+  <div class="card">
+    <div class="card-header">
+      <h3>📅 活動預告</h3>
+      <div class="card-actions">
+        <span class="source-badge">來源: LKCschedule</span>
+        <button class="btn btn-secondary btn-sm" id="btnAddEvent">➕ 新增活動</button>
+        <button class="btn btn-primary btn-sm" onclick="App.fetchSection('calendar')">⬇️ 自動帶入</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <p class="hint" style="margin-bottom:12px">自動帶入從 LKCschedule 取得未來 3 個月內活動。可手動新增、編輯或刪除。</p>
+      <div class="dynamic-row-header">
+        <span style="flex:1.2">日期</span>
+        <span style="flex:1.5">活動名稱</span>
+        <span style="flex:3">活動說明</span>
+        <span style="width:30px"></span>
+      </div>
+      <div id="eventsContainer"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================
+     Tab 5: 本會消息
+     ========================================== -->
+<div id="tab-announcements" class="tab-panel">
+
+  <div class="card">
+    <div class="card-header">
+      <h3>📢 本會消息</h3>
+      <div class="card-actions">
+        <span class="source-badge">手動填入</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <p class="hint" style="margin-bottom:16px">最多 10 則消息，空白欄不會列入週報。</p>
+      <div class="announcement-list">
+        <div class="announcement-item"><div class="announcement-num">1</div><textarea class="form-input" data-field="announcements.0" rows="2" placeholder="第一則消息…"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">2</div><textarea class="form-input" data-field="announcements.1" rows="2" placeholder="第二則消息…"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">3</div><textarea class="form-input" data-field="announcements.2" rows="2" placeholder="第三則消息…"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">4</div><textarea class="form-input" data-field="announcements.3" rows="2" placeholder="第四則消息…"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">5</div><textarea class="form-input" data-field="announcements.4" rows="2" placeholder="第五則消息…"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">6</div><textarea class="form-input" data-field="announcements.5" rows="2" placeholder="第六則消息…"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">7</div><textarea class="form-input" data-field="announcements.6" rows="2" placeholder="第七則消息…"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">8</div><textarea class="form-input" data-field="announcements.7" rows="2" placeholder="第八則消息…"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">9</div><textarea class="form-input" data-field="announcements.8" rows="2" placeholder="第九則消息…"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">10</div><textarea class="form-input" data-field="announcements.9" rows="2" placeholder="第十則消息…"></textarea></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================
+     Tab 6: 關懷代禱
+     ========================================== -->
+<div id="tab-prayer" class="tab-panel">
+
+  <div class="card">
+    <div class="card-header">
+      <h3>🙏 關懷代禱</h3>
+      <div class="card-actions">
+        <span class="source-badge">手動填入</span>
+      </div>
+    </div>
+    <div class="card-body">
+
+      <div class="form-group" style="margin-bottom:16px">
+        <label>在家調養 <span class="manual-tag">手動</span></label>
+        <textarea class="form-input" data-field="prayer.homeRest" rows="4"
+          placeholder="姓名、狀況…"></textarea>
+      </div>
+
+      <div class="form-group" style="margin-bottom:16px">
+        <label>住院 <span class="manual-tag">手動</span></label>
+        <textarea class="form-input" data-field="prayer.hospital" rows="4"
+          placeholder="姓名、院所、狀況…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>其他代禱 <span class="manual-tag">手動</span></label>
+        <textarea class="form-input" data-field="prayer.other" rows="4"
+          placeholder="其他需要代禱的事項…"></textarea>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================
+     Tab 7: 奉獻報告
+     ========================================== -->
+<div id="tab-offering" class="tab-panel">
+
+  <div class="card">
+    <div class="card-header">
+      <h3>💰 奉獻報告</h3>
+      <div class="card-actions">
+        <span class="source-badge">手動填入</span>
+        <button class="btn btn-secondary btn-sm" id="btnAddOffering">➕ 新增常動奉獻</button>
+      </div>
+    </div>
+    <div class="card-body">
+
+      <h4 style="margin-bottom:10px;color:var(--primary)">月定奉獻明細</h4>
+      <div class="dynamic-row-header">
+        <span style="flex:1.5">姓名</span>
+        <span style="flex:1.5">金額</span>
+        <span style="flex:2">備註</span>
+        <span style="width:30px"></span>
+      </div>
+      <div id="offeringContainer"></div>
+
+      <div class="section-divider" style="margin-top:20px"><span>其他</span></div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label>特別奉獻 <span class="manual-tag">手動</span></label>
+        <textarea class="form-input" data-field="offeringReport.special" rows="3"
+          placeholder="特別奉獻詳情…"></textarea>
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label>感恩奉獻 <span class="manual-tag">手動</span></label>
+        <textarea class="form-input" data-field="offeringReport.thanksgiving" rows="3"
+          placeholder="感恩奉獻詳情…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>備註 <span class="manual-tag">手動</span></label>
+        <textarea class="form-input" data-field="offeringReport.notes" rows="2"
+          placeholder="其他備註…"></textarea>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</main>
+
+<footer class="app-footer">
+  <p>樂迦拜教會週報管理系統 v1.0 &copy; 2024 | 自動儲存已啟用</p>
+</footer>
+
+<!-- 載入視窗 -->
+<div id="loadingOverlay">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <p>資料處理中，請稍候...</p>
+  </div>
+</div>
+
+<!-- 草稿視窗 -->
+<div id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📂 轉入草稿</h3>
+      <button class="modal-close" id="modalClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="draftList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast 區域 -->
+<div id="toastContainer"></div>
+
+<!-- JS 檔案 -->
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/bulletin.js"></script>
+<script src="js/draft.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+
+<!-- 延伸 App 方法: 小組資料直接更新 -->
+<script>
+  // 小組資料直接嵌入 Model
+  App._updateGroup = function(groupName, value) {
+    const data = BulletinModel.get();
+    if (data.attendance && data.attendance.smallGroups) {
+      data.attendance.smallGroups[groupName] = parseInt(value) || 0;
+    }
+  };
+
+  // 資料廣播領域修正: 支援數組索引路徑 (announcements.0 等)
+  const _origSet = BulletinModel.set.bind(BulletinModel);
+  BulletinModel.set = function(path, value) {
+    const parts = path.split('.');
+    // 如果是数字索引路徑，直接操作數組
+    if (parts.length === 2 && !isNaN(parts[1])) {
+      const arr = this._current[parts[0]];
+      if (Array.isArray(arr)) {
+        arr[parseInt(parts[1])] = value;
+        this._current.updatedAt = new Date().toISOString();
+        return;
+      }
+    }
+    _origSet(path, value);
+  };
+</script>
+
+</body>
+</html>
