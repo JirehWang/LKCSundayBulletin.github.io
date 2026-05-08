@@ -3,7 +3,6 @@
 const App = {
   _autoSaveTimer: null,
 
-  // 格式化本地日期串 (YYYY-MM-DD)，不用 toISOString 防止時區偏移額
   _formatLocalDate(d) {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -44,7 +43,6 @@ const App = {
       document.getElementById('dateDisplay').textContent =
         `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
 
-      // 計算下週日期並存入 model（供匯出使用）
       const nextD = new Date(d);
       nextD.setDate(d.getDate() + 7);
       const nextDate = this._formatLocalDate(nextD);
@@ -100,7 +98,6 @@ const App = {
     }
   },
 
-  // 主日程序 tab 自動帶入：同時抓 LKCschedule + LKC1958
   async fetchServiceProgram() {
     const date = document.getElementById('bulletinDate').value;
     if (!date) { this.showToast('請先選擇日期', 'error'); return; }
@@ -113,12 +110,10 @@ const App = {
       ]);
       BulletinModel.applyAPIData({ calendar: calResult, service: svcResult });
       this.syncFormFromModel();
-
       const msgs = [];
       if (!calResult.success) msgs.push(`行事曆失敗: ${calResult.error}`);
       else if (!calResult.data?.taiwanese && !calResult.data?.mandarin) msgs.push(`找不到 ${date} 的講道資訊`);
       if (!svcResult.success) msgs.push(`服事排班失敗: ${svcResult.error}`);
-
       this.showToast(msgs.length ? msgs.join('；') : '主日程序資料帶入完成', msgs.length ? 'warning' : 'success');
     } catch (err) {
       this.showToast('帶入失敗：' + err.message, 'error');
@@ -127,7 +122,6 @@ const App = {
     }
   },
 
-  // 服事人員 tab 同工帶入：本週 + 下週 同時扃(6 個並行請求)
   async fetchMinistry() {
     const date = document.getElementById('bulletinDate').value;
     if (!date) { this.showToast('請先選擇日期', 'error'); return; }
@@ -286,10 +280,21 @@ const App = {
     this.syncOfferingUI(data.offeringReport?.monthlyItems || []);
   },
 
+  // 動態渲染小組欄位（內容由 API 或 model 決定）
   syncSmallGroupsUI(groups) {
-    Object.entries(groups).forEach(([name, count]) => {
-      const el = document.querySelector(`[data-group="${name}"]`);
-      if (el) el.value = count || 0;
+    const container = document.getElementById('smallGroupsContainer');
+    if (!container) return;
+    const entries = Object.entries(groups);
+    if (entries.length === 0) {
+      container.innerHTML = '<div style="padding:16px;color:#999;text-align:center;width:100%">點擊「⬇ 帶入小組人數」從 LKGroup 自動載入</div>';
+      return;
+    }
+    container.innerHTML = '';
+    entries.forEach(([name, count]) => {
+      const div = document.createElement('div');
+      div.className = 'small-group-item';
+      div.innerHTML = `<label>${name}</label><input type="number" data-group="${name}" min="0" value="${parseInt(count) || 0}" onchange="App._updateGroup('${name}', this.value)">`;
+      container.appendChild(div);
     });
   },
 
