@@ -87,8 +87,6 @@ const ChurchAPI = {
         if (r[h] === undefined) r[h] = '';
       });
 
-      console.log('[LKC1958] r[台語司會]:', r['台語司會'], '| r[司琴]:', r['司琴'], '| r[音控同工]:', r['音控同工']);
-
       const newcomer = [r['新家人同工1'] || '', r['新家人同工2'] || ''].filter(Boolean).join('、');
 
       return {
@@ -125,8 +123,6 @@ const ChurchAPI = {
         row = scheduleData.find(r => this._dateMatch(r['日期'] || r[0], date)) || null;
         if (!row && !requireMatch) row = scheduleData[scheduleData.length - 1] || null;
       }
-
-      console.log('[LKworship] 資料 (', date, '):', row ? (row['日期'] || row[0]) : '無資料');
 
       let singers = '';
       if (row) {
@@ -252,44 +248,52 @@ const ChurchAPI = {
     }
   },
 
+  // ==========================================
+  // LKGroup - 小組人數
+  //
+  // 1. getGroups  → { success, groups: [{name}] }  取得完整小組列表
+  // 2. getWeeklyReport → { success, data: [{groupName, total, newFriends}], dateRange }
+  //    取得最新一週內有記錄的小組人數
+  // ==========================================
   async fetchSmallGroups(date) {
     try {
-      // 嘗試從 API 取得小組列表；失敗時用 CONFIG.TW_GROUPS 備援
-      let groupNames = null;
+      // Step 1: 取得小組列表
+      let groupNames = [];
       try {
-        const listResult = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getGroups', {});
-        console.log('[LKGroup] getGroups raw:', JSON.stringify(listResult).substring(0, 300));
-        const raw = this._unwrap(listResult);
-        if (Array.isArray(raw) && raw.length > 0) {
-          groupNames = raw.map(g => typeof g === 'string' ? g : (g.name || g.groupName || '')).filter(Boolean);
-          console.log('[LKGroup] 從 API 取得小組列表:', groupNames);
+        const groupsRes = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getGroups', {});
+        console.log('[LKGroup] getGroups response:', JSON.stringify(groupsRes).substring(0, 500));
+        if (groupsRes?.success && Array.isArray(groupsRes.groups)) {
+          groupNames = groupsRes.groups.map(g => g.name || g).filter(Boolean);
+          console.log('[LKGroup] 小組列表:', groupNames);
         }
       } catch (e) {
         console.log('[LKGroup] getGroups 失敗，改用預設列表:', e.message);
       }
-      if (!groupNames || groupNames.length === 0) groupNames = CONFIG.TW_GROUPS;
+      if (groupNames.length === 0) groupNames = CONFIG.TW_GROUPS;
 
+      // Step 2: 建立小組 map，預設人數 0
       const results = {};
-      await Promise.all(groupNames.map(async groupName => {
-        try {
-          const result = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getStats', {
-            groupName, groupCode: '', startDate: 'RAW_MODE'
+      groupNames.forEach(name => { results[name] = { date: '', attendance: 0, newFriends: '' }; });
+
+      // Step 3: 取得本週內有記錄的小組人數
+      try {
+        const weeklyRes = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getWeeklyReport', {});
+        console.log('[LKGroup] getWeeklyReport response:', JSON.stringify(weeklyRes).substring(0, 500));
+        if (weeklyRes?.success && Array.isArray(weeklyRes.data)) {
+          weeklyRes.data.forEach(g => {
+            if (results.hasOwnProperty(g.groupName)) {
+              results[g.groupName] = {
+                date:       weeklyRes.dateRange || '',
+                attendance: Number(g.total)     || 0,
+                newFriends: g.newFriends        || ''
+              };
+            }
           });
-          const data = this._unwrap(result);
-          if (Array.isArray(data) && data.length > 0) {
-            const recent = data[data.length - 1];
-            results[groupName] = {
-              date:       recent['日期'] || '',
-              attendance: Number(recent['實到人數']) || 0,
-              newFriends: recent['新朋友'] || ''
-            };
-          } else {
-            results[groupName] = { date: '', attendance: 0, newFriends: '' };
-          }
-        } catch (e) {
-          results[groupName] = { date: '', attendance: 0, newFriends: '', error: e.message };
         }
-      }));
+      } catch (e) {
+        console.log('[LKGroup] getWeeklyReport 失敗:', e.message);
+      }
+
       return { success: true, source: 'LKGroup', data: results };
     } catch (err) {
       console.error('[LKGroup]', err);
