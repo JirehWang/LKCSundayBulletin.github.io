@@ -8,18 +8,22 @@ const CONFIG = {
   // 共用認證 Token
   SHARED_TOKEN: 'ChurchApp-2026',
 
-  // 各系統 GAS 端點（直連，不走 LKERP 路由）
-  LKC1958_GAS_URL:    'https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec',
-  LKWORSHIP_GAS_URL:  'https://script.google.com/macros/s/AKfycbyk_6tUucVg-U4rRQjYHvk632teZyxufDkNX_X1WRUXPMGgsTaemVXD_mv9kBDjuSwOnA/exec',
-  LKCSCHEDULE_GAS_URL:'https://script.google.com/macros/s/AKfycbwiYYWgKxmLRAEaE_pbp_kWyAzlRPcwYVQfvmJVamRJvosvt5wTTkvwebbFBkP8rMqX/exec',
-  LKGROUP_GAS_URL:    'https://script.google.com/macros/s/AKfycbzfaWh_ooRTGijLV_7lYFUHFm83oL6DvYt9rt6ze5mDXhtwLv8ymxLX_PGuDTHzmNwe/exec',
+  // 各系統 GAS 端點
+  LKC1958_GAS_URL:       'https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec',
+  LKWORSHIP_GAS_URL:     'https://script.google.com/macros/s/AKfycbyk_6tUucVg-U4rRQjYHvk632teZyxufDkNX_X1WRUXPMGgsTaemVXD_mv9kBDjuSwOnA/exec',
+  LKCSCHEDULE_GAS_URL:   'https://script.google.com/macros/s/AKfycbwiYYWgKxmLRAEaE_pbp_kWyAzlRPcwYVQfvmJVamRJvosvt5wTTkvwebbFBkP8rMqX/exec',
+  LKGROUP_GAS_URL:       'https://script.google.com/macros/s/AKfycbzfaWh_ooRTGijLV_7lYFUHFm83oL6DvYt9rt6ze5mDXhtwLv8ymxLX_PGuDTHzmNwe/exec',
+  LKC_ATTENDANCE_GAS_URL:'https://script.google.com/macros/s/AKfycbyJbzjHIeFFRbqT-Ttk2OAPYfF-qDKYES8dJiu4sJCR4t2Fq9PTtbALwuiJDBxh55kR/exec',
 
   // 教會基本資訊
   CHURCH_NAME: '台灣基督長老教會林口教會',
   CHURCH_NAME_EN: 'Linkou Presbyterian Church',
 
   // 固定奉獻帳戶資訊
-  BANK_ACCOUNT: '教會奉獻帳戶：彰化銀行林口分行\n戶名：台灣基督長老教會林口教會\n銀行代碼：009　帳號：9689-51-29395500\n若有匯款請通知教會辦公室，謝謝！',
+  BANK_ACCOUNT: '教會奉獻帳戶：彰化銀行林口分行
+戶名：台灣基督長老教會林口教會
+銀行代碼：009　帳號：9689-51-29395500
+若有匯款請通知教會辦公室，謝謝！',
 
   // 自動儲存間隔（毫秒）
   AUTO_SAVE_INTERVAL: 60000,

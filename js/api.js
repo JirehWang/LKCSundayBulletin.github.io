@@ -13,7 +13,6 @@ const ChurchAPI = {
   },
 
   // LKC1958 格式：application/x-www-form-urlencoded, payload=JSON
-  // payload: { action, token, data: { type, ... } }  <-- type 必須在 data 裡
   async callLKC1958(action, data = {}) {
     const payload = { action, token: CONFIG.SHARED_TOKEN, data };
     const formBody = 'payload=' + encodeURIComponent(JSON.stringify(payload));
@@ -22,6 +21,17 @@ const ChurchAPI = {
       headers:  { 'Content-Type': 'application/x-www-form-urlencoded' },
       body:     formBody,
       redirect: 'follow'
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  },
+
+  // LKC_Attendance 格式：{ action, payload }
+  async callAttendance(action, payload = null) {
+    const res = await fetch(CONFIG.LKC_ATTENDANCE_GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action, payload })
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
@@ -45,9 +55,7 @@ const ChurchAPI = {
 
   // ==========================================
   // LKC1958 - 服事排班
-  //
-  // requireMatch=true: 找不到符合日期的列時回傳空結果（不回落加最後一列）
-  //   主要用於查詢下週：如果下週尚未登錄則留空，不記載本週則的資料
+  // requireMatch=true: 找不到符合日期的列時回傳空結果
   // ==========================================
   async fetchServiceSchedule(sundayDate, requireMatch = false) {
     try {
@@ -75,7 +83,6 @@ const ChurchAPI = {
           '| 音控:', row[headers.indexOf('音控同工')])
       );
 
-      // 找不到符合日期的列：根據 requireMatch 決定是否回落加最後一列
       let sourceRows;
       if (matchingRows.length > 0) {
         sourceRows = matchingRows;
@@ -86,7 +93,6 @@ const ChurchAPI = {
         sourceRows = [rows[rows.length - 1] || []];
       }
 
-      // 合併所有符合日期的列：每個欄位取第一個非空值
       const r = {};
       headers.forEach((h, i) => {
         if (!h) return;
@@ -125,8 +131,7 @@ const ChurchAPI = {
 
   // ==========================================
   // LKworship - 敬拜團
-  //
-  // requireMatch=true: 找不到日期時回傳空結果（不回落加最後一列）
+  // requireMatch=true: 找不到日期時回傳空結果
   // ==========================================
   async fetchWorshipSchedule(date, requireMatch = false) {
     try {
@@ -254,8 +259,34 @@ const ChurchAPI = {
     return { success: true, source: 'LKCschedule', data: { taiwanese: twService, mandarin: zhService, upcoming } };
   },
 
-  async fetchAttendance() {
-    return { success: false, source: 'LKC_Attendance', error: '出席人數請手動填入' };
+  // ==========================================
+  // LKC_Attendance - 主日出席人數
+  //
+  // 召叫格式：POST { action, payload }
+  // 將日期轉為出席系統所用的 yyyy/m/d 格式
+  // ==========================================
+  async fetchAttendance(date) {
+    try {
+      const d = new Date(date + 'T00:00:00');
+      const dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+
+      const result = await this.callAttendance('getSundayStats', dateStr);
+      console.log('[LKC_Attendance] raw response:', result);
+
+      const data = result?.data || result;
+      if (!data) throw new Error('資料格式不符');
+
+      return {
+        success: true, source: 'LKC_Attendance',
+        data: {
+          taiwanese: { total: data['台語禮拜'] ?? data.taiwanese ?? data.tw ?? 0 },
+          mandarin:  { total: data['華語禮拜'] ?? data.mandarin  ?? data.zh ?? 0 }
+        }
+      };
+    } catch (err) {
+      console.error('[LKC_Attendance]', err);
+      return { success: false, source: 'LKC_Attendance', error: err.message };
+    }
   },
 
   async fetchSmallGroups(date) {

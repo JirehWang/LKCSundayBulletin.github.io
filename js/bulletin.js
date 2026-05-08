@@ -43,7 +43,7 @@ const BulletinModel = {
       attendance: {
         twService: 0, zhService: 0, choir: 0,
         sundaySchool: { '幼小班':0, '初小班':0, '中小班':0, '高小班':0, '青少年班':0, '成人A班':0, '成人B班':0 },
-        bibleStudy: 0, weeklyMeeting: 0, morningPrayer: 0,
+        morningPrayer: 0, thursdayPrayer: 0,
         smallGroups: {
           '葡萄樹A':0, '葡萄樹B':0, '恩典團契':0, '橄欖樹':0, '松年團契':0, '學青':0,
           '棕樹A':0, '棕樹B':0, '香柏樹':0, '提摩太':0, '以斯帖':0,
@@ -104,26 +104,21 @@ const BulletinModel = {
   applyAPIData(apiResults) {
     const { calendar, service, worship, attendance, smallGroups } = apiResults;
 
-    // LKCschedule: 講員=主理者, 講題=講道題目, 經文=聖經經文
     if (calendar?.success) {
       const { taiwanese: tw, mandarin: zh, upcoming } = calendar.data;
       if (tw) {
-        // 主日程序 tab
         this.set('taiwanese.presider',     tw.speaker      || '');
         this.set('taiwanese.sermonTitle',  tw.sermonTitle  || '');
         this.set('taiwanese.scripture',    tw.scripture    || '');
         this.set('taiwanese.callToWorship',tw.callToWorship|| '');
         this.set('taiwanese.goldenVerse',  tw.goldenVerse  || '');
         if (tw.hymn) this.set('taiwanese.openingHymn', tw.hymn);
-        // 服事人員 tab - 台語主理
         this.set('ministry.thisWeek.tw.presider', tw.speaker || '');
       }
       if (zh) {
-        // 主日程序 tab
         this.set('mandarin.presider',    zh.speaker      || '');
         this.set('mandarin.sermonTitle', zh.sermonTitle  || '');
         this.set('mandarin.scripture',   zh.scripture    || '');
-        // 服事人員 tab - 華語主理
         this.set('ministry.thisWeek.zh.presider', zh.speaker || '');
       }
       if (upcoming) {
@@ -133,14 +128,11 @@ const BulletinModel = {
       }
     }
 
-    // LKC1958: 司會者、司琴、服事人員排班
     if (service?.success) {
       const d = service.data;
-      // 主日程序 tab
       this.set('taiwanese.mc',      d.mc      || '');
       this.set('taiwanese.pianist', d.pianist || '');
       this.set('mandarin.mc',       d.zhMc    || '');
-      // 服事人員 tab - 台語
       this.set('ministry.thisWeek.tw.mc',            d.mc           || '');
       this.set('ministry.thisWeek.tw.pianist',       d.pianist      || '');
       this.set('ministry.thisWeek.tw.choir',         d.choir        || '');
@@ -148,11 +140,9 @@ const BulletinModel = {
       this.set('ministry.thisWeek.tw.preMeetingSong',d.songLeader   || '');
       this.set('ministry.thisWeek.tw.soundControl',  d.soundControl || '');
       this.set('ministry.thisWeek.tw.newcomerCare',  d.newcomerCare || '');
-      // 服事人員 tab - 華語
       this.set('ministry.thisWeek.zh.mc',            d.zhMc         || '');
     }
 
-    // LKworship: 敬拜團主領
     if (worship?.success) {
       this.set('ministry.thisWeek.zh.worship', worship.data.leader || '');
     }
@@ -172,7 +162,6 @@ const BulletinModel = {
     }
   },
 
-  // 下週服事人員：映射到 ministry.nextWeek.*
   applyNextWeekAPIData(apiResults) {
     const { calendar, service, worship } = apiResults;
 
