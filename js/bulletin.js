@@ -43,12 +43,8 @@ const BulletinModel = {
       attendance: {
         twService: 0, zhService: 0, choir: 0,
         sundaySchool: { '幼小班':0, '初小班':0, '中小班':0, '高小班':0, '青少年班':0, '成人A班':0, '成人B班':0 },
-        morningPrayer: 0, thursdayPrayer: 0,
-        smallGroups: {
-          '葡萄樹A':0, '葡萄樹B':0, '恩典團契':0, '橄欖樹':0, '松年團契':0, '學青':0,
-          '棕樹A':0, '棕樹B':0, '香柏樹':0, '提摩太':0, '以斯帖':0,
-          '芥菜種A':0, '芥菜種B':0, '芥菜種C':0, '恩典幸福小組':0, '棕樹幸福小組':0
-        },
+        sundayPrayer: 0, thursdayPrayer: 0,
+        smallGroups: Object.fromEntries(CONFIG.TW_GROUPS.map(g => [g, 0])),
         twOffering: 0, zhOffering: 0, zhOffering2: 0, sundaySchoolOffering: 0
       },
 
@@ -154,10 +150,10 @@ const BulletinModel = {
     }
 
     if (smallGroups?.success) {
-      const sg = smallGroups.data;
-      const cur = this._current.attendance.smallGroups;
-      for (const g of Object.keys(cur)) {
-        if (sg[g]) cur[g] = sg[g].attendance || 0;
+      // 完全替換 smallGroups（含 API 動態回傳的小組列表）
+      this._current.attendance.smallGroups = {};
+      for (const [name, info] of Object.entries(smallGroups.data)) {
+        this._current.attendance.smallGroups[name] = info.attendance || 0;
       }
     }
   },

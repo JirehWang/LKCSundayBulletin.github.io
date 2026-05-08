@@ -12,7 +12,6 @@ const ChurchAPI = {
     return await res.json();
   },
 
-  // LKC1958 格式：application/x-www-form-urlencoded, payload=JSON
   async callLKC1958(action, data = {}) {
     const payload = { action, token: CONFIG.SHARED_TOKEN, data };
     const formBody = 'payload=' + encodeURIComponent(JSON.stringify(payload));
@@ -26,7 +25,6 @@ const ChurchAPI = {
     return await res.json();
   },
 
-  // LKC_Attendance 格式：{ action, payload }
   async callAttendance(action, payload = null) {
     const res = await fetch(CONFIG.LKC_ATTENDANCE_GAS_URL, {
       method: 'POST',
@@ -53,41 +51,27 @@ const ChurchAPI = {
     return cellClean === targetClean;
   },
 
-  // ==========================================
-  // LKC1958 - 服事排班
-  // requireMatch=true: 找不到符合日期的列時回傳空結果
-  // ==========================================
   async fetchServiceSchedule(sundayDate, requireMatch = false) {
     try {
       const result = await this.callLKC1958('getAggregatedReport', { type: 'others' });
-      console.log('[LKC1958] raw response:', JSON.stringify(result).substring(0, 500));
-
       const rawData = this._unwrap(result);
       if (!Array.isArray(rawData) || rawData.length === 0) throw new Error('資料格式不符');
 
       const headers  = rawData[0] || [];
       const rows     = rawData.slice(1);
       const dateIdx  = headers.indexOf('日期');
-      console.log('[LKC1958] headers:', headers);
-      console.log('[LKC1958] dateIdx:', dateIdx, '| total rows:', rows.length, '| looking for:', sundayDate);
+      console.log('[LKC1958] headers:', headers, '| dateIdx:', dateIdx, '| looking for:', sundayDate);
 
       const matchingRows = dateIdx !== -1
         ? rows.filter(row => this._dateMatch(row[dateIdx], sundayDate))
         : rows.filter(row => this._dateMatch(row[0], sundayDate));
 
       console.log('[LKC1958] matchingRows:', matchingRows.length);
-      matchingRows.forEach((row, i) =>
-        console.log(`[LKC1958] row[${i}] 分頁:`, row[0],
-          '| 台語司會:', row[headers.indexOf('台語司會')],
-          '| 司琴:', row[headers.indexOf('司琴')],
-          '| 音控:', row[headers.indexOf('音控同工')])
-      );
 
       let sourceRows;
       if (matchingRows.length > 0) {
         sourceRows = matchingRows;
       } else if (requireMatch) {
-        console.log('[LKC1958] 沒有符合', sundayDate, '的列，且 requireMatch=true，回傳空結果');
         return { success: false, source: 'LKC1958_June_1', error: '查無資料' };
       } else {
         sourceRows = [rows[rows.length - 1] || []];
@@ -103,8 +87,7 @@ const ChurchAPI = {
         if (r[h] === undefined) r[h] = '';
       });
 
-      console.log('[LKC1958] merged r[台語司會]:', r['台語司會'],
-                  '| r[司琴]:', r['司琴'], '| r[音控同工]:', r['音控同工']);
+      console.log('[LKC1958] r[台語司會]:', r['台語司會'], '| r[司琴]:', r['司琴'], '| r[音控同工]:', r['音控同工']);
 
       const newcomer = [r['新家人同工1'] || '', r['新家人同工2'] || ''].filter(Boolean).join('、');
 
@@ -129,10 +112,6 @@ const ChurchAPI = {
     }
   },
 
-  // ==========================================
-  // LKworship - 敬拜團
-  // requireMatch=true: 找不到日期時回傳空結果
-  // ==========================================
   async fetchWorshipSchedule(date, requireMatch = false) {
     try {
       const d = new Date(date);
@@ -140,15 +119,11 @@ const ChurchAPI = {
       const quarter = 'Q' + Math.ceil((d.getMonth() + 1) / 3);
 
       const result = await this.callGAS(CONFIG.LKWORSHIP_GAS_URL, 'getSchedule', { year, quarter });
-      console.log('[LKworship] raw response:', JSON.stringify(result).substring(0, 300));
-
       const scheduleData = this._unwrap(result);
       let row = null;
       if (Array.isArray(scheduleData)) {
         row = scheduleData.find(r => this._dateMatch(r['日期'] || r[0], date)) || null;
-        if (!row && !requireMatch) {
-          row = scheduleData[scheduleData.length - 1] || null;
-        }
+        if (!row && !requireMatch) row = scheduleData[scheduleData.length - 1] || null;
       }
 
       console.log('[LKworship] 資料 (', date, '):', row ? (row['日期'] || row[0]) : '無資料');
@@ -161,11 +136,7 @@ const ChurchAPI = {
 
       return {
         success: true, source: 'LKworship',
-        data: {
-          leader:  row ? (row['主領'] || '') : '',
-          singers,
-          raw: row || {}
-        }
+        data: { leader: row ? (row['主領'] || '') : '', singers, raw: row || {} }
       };
     } catch (err) {
       console.error('[LKworship]', err);
@@ -173,9 +144,6 @@ const ChurchAPI = {
     }
   },
 
-  // ==========================================
-  // LKCschedule - 行事曆
-  // ==========================================
   async fetchCalendar() {
     try {
       const result = await this.callGAS(CONFIG.LKCSCHEDULE_GAS_URL, 'load', {});
@@ -188,9 +156,6 @@ const ChurchAPI = {
         const raw = this._unwrap(result);
         events = Array.isArray(raw) ? raw : [];
       }
-
-      console.log('[LKCschedule] events count:', events.length);
-      if (events.length > 0) console.log('[LKCschedule] first event keys:', Object.keys(events[0]));
 
       return {
         success: true, source: 'LKCschedule',
@@ -228,9 +193,8 @@ const ChurchAPI = {
     const result = await this.fetchCalendar();
     if (!result.success) return result;
     const events = result.data;
-    const match = e => this._dateMatch(e.date, date);
 
-    const dayEvents = events.filter(match);
+    const dayEvents = events.filter(e => this._dateMatch(e.date, date));
     console.log('[LKCschedule] date:', date, '| dayEvents:', dayEvents.length);
 
     const twEvent = dayEvents.find(e => e.hasTwSermon)
@@ -247,9 +211,6 @@ const ChurchAPI = {
       scripture:   zhEvent.zhScripture   || zhEvent.scripture   || ''
     } : null;
 
-    console.log('[LKCschedule] twService.sermonTitle:', twService?.sermonTitle,
-                '| zhService.sermonTitle:', zhService?.sermonTitle);
-
     const today = new Date(date);
     const limit = new Date(today); limit.setMonth(limit.getMonth() + 3);
     const upcoming = events
@@ -259,22 +220,9 @@ const ChurchAPI = {
     return { success: true, source: 'LKCschedule', data: { taiwanese: twService, mandarin: zhService, upcoming } };
   },
 
-  // ==========================================
-  // LKC_Attendance - 主日出席人數
-  //
-  // 使用 getAttendanceStats (mode:'single') 查詢單日人數
-  // 總人數 = presentCount + nfMale + nfFemale
-  // 群組名稱依 LKC_Attendance 系統設定：台語 / 華語
-  // ==========================================
   async fetchAttendance(date) {
     try {
-      const req = (type) => ({
-        type,
-        mode: 'single',
-        date,
-        baseSheet: '會友名單',
-        targetGroups: []
-      });
+      const req = (type) => ({ type, mode: 'single', date, baseSheet: '會友名單', targetGroups: [] });
 
       const [twRaw, zhRaw] = await Promise.allSettled([
         this.callAttendance('getAttendanceStats', req('台語')),
@@ -288,9 +236,7 @@ const ChurchAPI = {
         if (settled.status !== 'fulfilled') return 0;
         const data = settled.value?.data ?? settled.value;
         if (!data) return 0;
-        return (Number(data.presentCount) || 0)
-             + (Number(data.nfMale)      || 0)
-             + (Number(data.nfFemale)    || 0);
+        return (Number(data.presentCount) || 0) + (Number(data.nfMale) || 0) + (Number(data.nfFemale) || 0);
       };
 
       return {
@@ -308,8 +254,23 @@ const ChurchAPI = {
 
   async fetchSmallGroups(date) {
     try {
+      // 嘗試從 API 取得小組列表；失敗時用 CONFIG.TW_GROUPS 備援
+      let groupNames = null;
+      try {
+        const listResult = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getGroups', {});
+        console.log('[LKGroup] getGroups raw:', JSON.stringify(listResult).substring(0, 300));
+        const raw = this._unwrap(listResult);
+        if (Array.isArray(raw) && raw.length > 0) {
+          groupNames = raw.map(g => typeof g === 'string' ? g : (g.name || g.groupName || '')).filter(Boolean);
+          console.log('[LKGroup] 從 API 取得小組列表:', groupNames);
+        }
+      } catch (e) {
+        console.log('[LKGroup] getGroups 失敗，改用預設列表:', e.message);
+      }
+      if (!groupNames || groupNames.length === 0) groupNames = CONFIG.TW_GROUPS;
+
       const results = {};
-      await Promise.all(CONFIG.TW_GROUPS.map(async groupName => {
+      await Promise.all(groupNames.map(async groupName => {
         try {
           const result = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getStats', {
             groupName, groupCode: '', startDate: 'RAW_MODE'
