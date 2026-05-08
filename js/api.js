@@ -51,6 +51,11 @@ const ChurchAPI = {
     return cellClean === targetClean;
   },
 
+  // 將任意 Date 物件格式化為 yyyy-mm-dd（使用本地時區，避免 UTC 偏移）
+  _localDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  },
+
   async fetchServiceSchedule(sundayDate, requireMatch = false) {
     try {
       const result = await this.callLKC1958('getAggregatedReport', { type: 'others' });
@@ -216,9 +221,20 @@ const ChurchAPI = {
     return { success: true, source: 'LKCschedule', data: { taiwanese: twService, mandarin: zhService, upcoming } };
   },
 
+  // ==========================================
+  // LKC_Attendance - 主日禮拜出席人數
+  //
+  // 報告的是「上一個週日」的人數（週報日期 - 7 天）
+  // ==========================================
   async fetchAttendance(date) {
     try {
-      const req = (type) => ({ type, mode: 'single', date, baseSheet: '會友名單', targetGroups: [] });
+      // 主日禮拜人數報告上一個週日的資料
+      const d = new Date(date + 'T00:00:00');
+      d.setDate(d.getDate() - 7);
+      const prevSunday = this._localDateStr(d);
+      console.log('[LKC_Attendance] 查詢日期:', prevSunday, '(週報日期', date, '-7天)');
+
+      const req = (type) => ({ type, mode: 'single', date: prevSunday, baseSheet: '會友名單', targetGroups: [] });
 
       const [twRaw, zhRaw] = await Promise.allSettled([
         this.callAttendance('getAttendanceStats', req('台語')),
@@ -251,9 +267,9 @@ const ChurchAPI = {
   // ==========================================
   // LKGroup - 小組人數
   //
-  // 1. getGroups  → { success, groups: [{name}] }  取得完整小組列表
-  // 2. getWeeklyReport → { success, data: [{groupName, total, newFriends}], dateRange }
-  //    取得最新一週內有記錄的小組人數
+  // 1. getGroups        → { success, groups: [{name}] }  完整小組列表
+  // 2. getWeeklyReport  → { success, data: [{groupName, total, newFriends}], dateRange }
+  //    統計區間：上一個週日 ~ 本週六（符合「週報日期上一週日到週六」需求）
   // ==========================================
   async fetchSmallGroups(date) {
     try {
@@ -275,13 +291,13 @@ const ChurchAPI = {
       const results = {};
       groupNames.forEach(name => { results[name] = { date: '', attendance: 0, newFriends: '' }; });
 
-      // Step 3: 取得本週內有記錄的小組人數
+      // Step 3: 取得本週（上週日到本週六）小組人數
       try {
         const weeklyRes = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getWeeklyReport', {});
         console.log('[LKGroup] getWeeklyReport response:', JSON.stringify(weeklyRes).substring(0, 500));
         if (weeklyRes?.success && Array.isArray(weeklyRes.data)) {
           weeklyRes.data.forEach(g => {
-            if (results.hasOwnProperty(g.groupName)) {
+            if (Object.prototype.hasOwnProperty.call(results, g.groupName)) {
               results[g.groupName] = {
                 date:       weeklyRes.dateRange || '',
                 attendance: Number(g.total)     || 0,
