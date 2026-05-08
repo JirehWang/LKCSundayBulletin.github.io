@@ -262,25 +262,42 @@ const ChurchAPI = {
   // ==========================================
   // LKC_Attendance - 主日出席人數
   //
-  // 召叫格式：POST { action, payload }
-  // 將日期轉為出席系統所用的 yyyy/m/d 格式
+  // 使用 getAttendanceStats (mode:'single') 查詢單日人數
+  // 總人數 = presentCount + nfMale + nfFemale
+  // 群組名稱依 LKC_Attendance 系統設定：台語 / 華語
   // ==========================================
   async fetchAttendance(date) {
     try {
-      const d = new Date(date + 'T00:00:00');
-      const dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+      const req = (type) => ({
+        type,
+        mode: 'single',
+        date,
+        baseSheet: '會友名單',
+        targetGroups: []
+      });
 
-      const result = await this.callAttendance('getSundayStats', dateStr);
-      console.log('[LKC_Attendance] raw response:', result);
+      const [twRaw, zhRaw] = await Promise.allSettled([
+        this.callAttendance('getAttendanceStats', req('台語')),
+        this.callAttendance('getAttendanceStats', req('華語'))
+      ]);
 
-      const data = result?.data || result;
-      if (!data) throw new Error('資料格式不符');
+      console.log('[LKC_Attendance] 台語 raw:', twRaw.status === 'fulfilled' ? twRaw.value : twRaw.reason);
+      console.log('[LKC_Attendance] 華語 raw:', zhRaw.status === 'fulfilled' ? zhRaw.value : zhRaw.reason);
+
+      const parseTotal = (settled) => {
+        if (settled.status !== 'fulfilled') return 0;
+        const data = settled.value?.data ?? settled.value;
+        if (!data) return 0;
+        return (Number(data.presentCount) || 0)
+             + (Number(data.nfMale)      || 0)
+             + (Number(data.nfFemale)    || 0);
+      };
 
       return {
         success: true, source: 'LKC_Attendance',
         data: {
-          taiwanese: { total: data['台語禮拜'] ?? data.taiwanese ?? data.tw ?? 0 },
-          mandarin:  { total: data['華語禮拜'] ?? data.mandarin  ?? data.zh ?? 0 }
+          taiwanese: { total: parseTotal(twRaw) },
+          mandarin:  { total: parseTotal(zhRaw) }
         }
       };
     } catch (err) {
